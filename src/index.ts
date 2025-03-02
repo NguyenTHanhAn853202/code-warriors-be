@@ -5,7 +5,9 @@ import { PORT } from './utils/secret'
 import cors from 'cors'
 import path from 'path'
 import logger from './utils/logger'
-
+import connectDB from './database'
+import router from './routes/index.routes'
+import errorHandler from './utils/errorHandler'
 
 const app = express()
 
@@ -18,10 +20,18 @@ app.use(express.static(path.join(__dirname,'public')))
 app.use(bodyParser.json())
 app.use(bodyParser.urlencoded({ extended: true}))
 
+// routes
+router(app)
+
+// connectDB
+connectDB()
+
+app.use(errorHandler)
+
 app.use((req:Request,res:Response,next:NextFunction)=>{
     logger.info(`HTTP ${req.method} ${req.url}`);
     next();
-  })
+})
 
 app.listen(PORT,()=>{
     console.log("listening on port: ", PORT)

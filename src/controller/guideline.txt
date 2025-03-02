@@ -1,0 +1,4 @@
+- dùng expressAsyncHandler để chạy => không dùng return, không cần bắt try-catch,
+- trả về response thì chỉ cần dùng hàm sendResonse thêm đối số vào (xem mẫu ở user.controller)
+- trả lỗi chỉ cần throw new AppError vd if(existsUser) throw new AppError(message,httpCode, status)
+- mọi tương tác với db thì viết ở service
