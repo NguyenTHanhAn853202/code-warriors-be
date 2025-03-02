@@ -8,6 +8,7 @@ export interface IProblem extends Document {
   author: mongoose.Types.ObjectId;
   testCases: mongoose.Types.ObjectId[]; // Liên kết với TestCase
   createdAt: Date;
+  timeout:number; // Th��i gian chơi (ms) của test case này, mặc đ��nh là 5000ms (5s)  (optional)
 }
 
 const problemSchema = new Schema<IProblem>(
@@ -17,6 +18,7 @@ const problemSchema = new Schema<IProblem>(
     difficulty: [ {type: Schema.Types.ObjectId, required: true }],
     author: { type: Schema.Types.ObjectId, ref: "User", required: true },
     testCases: [{ type: Schema.Types.ObjectId, ref: "TestCase" }],
+    timeout:{type:Number,default:5000}
   },
   { timestamps: true }
 );
