@@ -8,6 +8,7 @@ import { Judge0Status } from "../utils/judge0Status";
 import problemModel from "../model/problem.model";
 import { AppError } from "../utils/AppError";
 import Leaderboard from "../model/leaderboard.model";
+import userModel from "../model/user.model";
 
 
 class SubmissionController{
@@ -54,9 +55,11 @@ class SubmissionController{
             evaluate.memory += result.memory
             
         }
-        const userId = "67c515ad7893bdb73c6a1370"
+        const userId = "67c515ad7893bdb73c6a1371"
         
         const leaderboard = await Leaderboard.findOneAndUpdate({user:userId, problem:problemId},{$inc:{attempts:1},score:evaluate.point, time:evaluate.time, memory:evaluate.memory, oldSource:sourceCode,languageId:languageId},{new:true,upsert:true})
+
+        await userModel.updateOne({_id:userId},{$inc:{xp:1}})
 
         sendResponse(res,"success","check ", httpCode.OK, {leaderboard})
     })
