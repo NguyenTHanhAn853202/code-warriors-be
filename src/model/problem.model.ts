@@ -8,17 +8,23 @@ export interface IProblem extends Document {
   author: mongoose.Types.ObjectId;
   testCases: mongoose.Types.ObjectId[]; // Liên kết với TestCase
   createdAt: Date;
-  timeout:number; // Th��i gian chơi (ms) của test case này, mặc đ��nh là 5000ms (5s)  (optional)
+  timeout:number;
+  startDate:Date;
+  endDate: Date;  
+  source_code: String; // Th��i gian chơi (ms) của test case này, mặc đ��nh là 5000ms (5s)  (optional)
 }
 
 const problemSchema = new Schema<IProblem>(
   {
     title: { type: String, required: true },
     description: { type: String, required: true },
-    difficulty: [ {type: Schema.Types.ObjectId, required: true }],
+    difficulty: [ {type: Schema.Types.ObjectId, required: true, ref:"Rank" }],
     author: { type: Schema.Types.ObjectId, ref: "User", required: true },
     testCases: [{ type: Schema.Types.ObjectId, ref: "TestCase" }],
-    timeout:{type:Number,default:5000}
+    timeout:{type:Number,default:5000},
+    startDate: {type: Date, default:Date.now()},
+    endDate: {type: Date},
+    source_code:{type:String}
   },
   { timestamps: true }
 );

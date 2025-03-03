@@ -5,7 +5,7 @@ import { httpCode } from "./httpCode";
 
 function errorHandler(err:Error,req:Request,res:Response,next:NextFunction):void {
     if( err instanceof AppError){
-        return sendResponse(res,err.status,err.message,err.statusCode)
+        return sendResponse(res,err.status,err.message,err.statusCode,err.data)
     }
     sendResponse(res,"error",err.message,httpCode.INTERNAL_SERVER_ERROR)
 }
