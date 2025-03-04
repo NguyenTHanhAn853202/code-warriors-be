@@ -45,7 +45,6 @@ class Problems {
         });
       }
 
-      // Validate test cases if provided
       if (testCases.length > 0) {
         const invalidTestCases = testCases.filter(
           (testCase: TestCaseInput) =>
@@ -115,19 +114,15 @@ class Problems {
   ViewAllProblems = expressAsyncHandler(
     async (req: Request, res: Response, next: NextFunction): Promise<void> => {
       try {
-        // Destructure query parameters with defaults
         const { page = 1, limit = 10, difficulty, title } = req.query;
 
-        // Build filter object
         const filter: any = {};
         if (difficulty) filter.difficulty = difficulty;
         if (title) filter.title = { $regex: title as string, $options: "i" };
 
-        // Convert page and limit to numbers
         const pageNumber = Number(page);
         const limitNumber = Number(limit);
 
-        // Perform paginated query
         const problems = await problemModel
           .find(filter)
           .select("title description difficulty author createdAt")
@@ -164,20 +159,17 @@ class Problems {
         const { id } = req.params;
         const updateData = req.body;
 
-        // Validate ObjectId
         if (!mongoose.Types.ObjectId.isValid(id)) {
           res.status(400).json({ message: "Invalid problem ID" });
           return;
         }
 
-
         const { testCases, author, createdAt, ...allowedUpdates } = updateData;
-
 
         const updatedProblem = await problemModel
           .findByIdAndUpdate(id, allowedUpdates, {
-            new: true, 
-            runValidators: true, 
+            new: true,
+            runValidators: true,
           })
           .populate("difficulty")
           .populate("author");
@@ -187,9 +179,7 @@ class Problems {
           return;
         }
 
-        // Handle test cases update separately if provided
         if (testCases && testCases.length > 0) {
-          // First, remove existing test cases
           await testcaseModel.deleteMany({ problem: id });
 
           const savedTestCases = await Promise.all(
@@ -230,7 +220,6 @@ class Problems {
           return;
         }
 
-        // Find and delete problem
         const deletedProblem = await problemModel
           .findByIdAndDelete(id)
           .populate("difficulty")
