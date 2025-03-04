@@ -170,14 +170,14 @@ class Problems {
           return;
         }
 
-        // Prevent updating certain fields
+
         const { testCases, author, createdAt, ...allowedUpdates } = updateData;
 
-        // Find and update problem
+
         const updatedProblem = await problemModel
           .findByIdAndUpdate(id, allowedUpdates, {
-            new: true, // Return updated document
-            runValidators: true, // Run model validations
+            new: true, 
+            runValidators: true, 
           })
           .populate("difficulty")
           .populate("author");
@@ -192,7 +192,6 @@ class Problems {
           // First, remove existing test cases
           await testcaseModel.deleteMany({ problem: id });
 
-          // Create new test cases
           const savedTestCases = await Promise.all(
             testCases.map(async (test: TestCaseInput) => {
               const newTestCase = new testcaseModel({
@@ -204,7 +203,6 @@ class Problems {
             })
           );
 
-          // Update problem with new test case references
           updatedProblem.testCases = savedTestCases.map((test) => test._id);
           await updatedProblem.save();
         }
@@ -215,6 +213,42 @@ class Problems {
         });
       } catch (error) {
         console.error("Error updating problem:", error);
+        res.status(500).json({
+          message: "Internal server error",
+          error: error instanceof Error ? error.message : "Unknown error",
+        });
+      }
+    }
+  );
+  DeleteProblem = expressAsyncHandler(
+    async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+      try {
+        const { id } = req.params;
+
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+          res.status(400).json({ message: "Invalid problem ID" });
+          return;
+        }
+
+        // Find and delete problem
+        const deletedProblem = await problemModel
+          .findByIdAndDelete(id)
+          .populate("difficulty")
+          .populate("author");
+
+        if (!deletedProblem) {
+          res.status(404).json({ message: "Problem not found" });
+          return;
+        }
+
+        await testcaseModel.deleteMany({ problem: id });
+
+        res.status(200).json({
+          message: "Problem deleted successfully",
+          problem: deletedProblem,
+        });
+      } catch (error) {
+        console.error("Error deleting problem:", error);
         res.status(500).json({
           message: "Internal server error",
           error: error instanceof Error ? error.message : "Unknown error",
