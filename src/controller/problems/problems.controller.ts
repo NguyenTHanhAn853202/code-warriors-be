@@ -3,6 +3,7 @@ import expressAsyncHandler from "express-async-handler";
 import problemModel from "../../model/problem.model";
 import testcaseModel from "../../model/testcase.model";
 import RankModel from "../../model/rank.model";
+import mongoose from "mongoose";
 
 interface TestCaseInput {
   input: string;
@@ -106,6 +107,117 @@ class Problems {
             error instanceof Error
               ? error.message
               : "Unknown error occurred during problem creation",
+        });
+      }
+    }
+  );
+
+  ViewAllProblems = expressAsyncHandler(
+    async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+      try {
+        // Destructure query parameters with defaults
+        const { page = 1, limit = 10, difficulty, title } = req.query;
+
+        // Build filter object
+        const filter: any = {};
+        if (difficulty) filter.difficulty = difficulty;
+        if (title) filter.title = { $regex: title as string, $options: "i" };
+
+        // Convert page and limit to numbers
+        const pageNumber = Number(page);
+        const limitNumber = Number(limit);
+
+        // Perform paginated query
+        const problems = await problemModel
+          .find(filter)
+          .select("title description difficulty author createdAt")
+          .populate("difficulty", "name")
+          .populate("author", "username")
+          .skip((pageNumber - 1) * limitNumber)
+          .limit(limitNumber)
+          .sort({ createdAt: -1 });
+
+        const total = await problemModel.countDocuments(filter);
+
+        res.status(200).json({
+          message: "Problems retrieved successfully",
+          problems,
+          pagination: {
+            currentPage: pageNumber,
+            totalPages: Math.ceil(total / limitNumber),
+            totalProblems: total,
+          },
+        });
+      } catch (error) {
+        console.error("Error retrieving problems:", error);
+        res.status(500).json({
+          message: "Internal server error",
+          error: error instanceof Error ? error.message : "Unknown error",
+        });
+      }
+    }
+  );
+
+  UpdateProblem = expressAsyncHandler(
+    async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+      try {
+        const { id } = req.params;
+        const updateData = req.body;
+
+        // Validate ObjectId
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+          res.status(400).json({ message: "Invalid problem ID" });
+          return;
+        }
+
+        // Prevent updating certain fields
+        const { testCases, author, createdAt, ...allowedUpdates } = updateData;
+
+        // Find and update problem
+        const updatedProblem = await problemModel
+          .findByIdAndUpdate(id, allowedUpdates, {
+            new: true, // Return updated document
+            runValidators: true, // Run model validations
+          })
+          .populate("difficulty")
+          .populate("author");
+
+        if (!updatedProblem) {
+          res.status(404).json({ message: "Problem not found" });
+          return;
+        }
+
+        // Handle test cases update separately if provided
+        if (testCases && testCases.length > 0) {
+          // First, remove existing test cases
+          await testcaseModel.deleteMany({ problem: id });
+
+          // Create new test cases
+          const savedTestCases = await Promise.all(
+            testCases.map(async (test: TestCaseInput) => {
+              const newTestCase = new testcaseModel({
+                problem: id,
+                input: test.input,
+                expectedOutput: test.expectedOutput,
+              });
+              return await newTestCase.save();
+            })
+          );
+
+          // Update problem with new test case references
+          updatedProblem.testCases = savedTestCases.map((test) => test._id);
+          await updatedProblem.save();
+        }
+
+        res.status(200).json({
+          message: "Problem updated successfully",
+          problem: updatedProblem,
+        });
+      } catch (error) {
+        console.error("Error updating problem:", error);
+        res.status(500).json({
+          message: "Internal server error",
+          error: error instanceof Error ? error.message : "Unknown error",
         });
       }
     }
