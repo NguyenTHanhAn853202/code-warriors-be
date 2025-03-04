@@ -3,6 +3,6 @@ import problemsController from "../controller/problems/problems.controller";
 
 const router = Router();
 
-router.get("/a", problemsController.Hello);
+router.post("/createProblems", problemsController.CreateProblems);
 
 export default router;
