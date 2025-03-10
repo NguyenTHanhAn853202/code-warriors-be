@@ -1,3 +1,4 @@
+
 import { Request, Response, NextFunction } from "express";
 import expressAsyncHandler from "express-async-handler";
 import problemModel from "../../model/problem.model";
@@ -12,11 +13,13 @@ interface TestCaseInput {
 
 class Problems {
   CreateProblems = expressAsyncHandler(
-    async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    async (req: Request, res: Response): Promise<void> => {
       const {
         title,
         description,
         difficulty = [],
+        rankDifficulty = [],
+        algorithmTypes,
         author,
         testCases = [],
         timeout = 5000,
@@ -24,16 +27,6 @@ class Problems {
         endDate,
         source_code,
       } = req.body;
-
-      let finalDifficulty = difficulty;
-      if (difficulty.length === 0) {
-        const defaultRank = await RankModel.findOne({})
-          .sort({ minElo: 1 })
-          .select("_id");
-        if (defaultRank) {
-          finalDifficulty = [defaultRank._id];
-        }
-      }
 
       const requiredFields = ["title", "description", "author"];
       const missingFields = requiredFields.filter((field) => !req.body[field]);
@@ -43,6 +36,20 @@ class Problems {
           message: "Missing required fields",
           missingFields,
         });
+      }
+
+      let finalRankDifficulty = rankDifficulty;
+      if (!rankDifficulty.length) {
+        finalRankDifficulty = ["easy"];
+      } else {
+        const validRanks = ["easy", "medium", "hard"];
+        finalRankDifficulty = rankDifficulty.filter((rank: string) =>
+          validRanks.includes(rank.toLowerCase())
+        );
+
+        if (!finalRankDifficulty.length) {
+          res.status(400).json({ message: "Invalid rankDifficulty values" });
+        }
       }
 
       if (testCases.length > 0) {
@@ -59,55 +66,56 @@ class Problems {
         }
       }
 
-      try {
-        const newProblem = new problemModel({
-          title,
-          description,
-          difficulty: finalDifficulty,
-          author,
-          testCases: [],
-          timeout,
-          startDate,
-          endDate,
-          source_code,
-        });
-
-        await newProblem.save();
-
-        const savedTestCases = await Promise.all(
-          testCases.map(async (test: TestCaseInput) => {
-            const newTestCase = new testcaseModel({
-              problem: newProblem._id,
-              input: test.input,
-              expectedOutput: test.expectedOutput,
-            });
-            return await newTestCase.save();
-          })
-        );
-
-        newProblem.testCases = savedTestCases.map((test) => test._id);
-        await newProblem.save();
-
-        const populatedProblem = await problemModel
-          .findById(newProblem._id)
-          .populate("difficulty")
-          .populate("author")
-          .populate("testCases");
-
-        res.status(201).json({
-          message: "Problem created successfully",
-          problem: populatedProblem,
-        });
-      } catch (error) {
-        console.error("Problem creation error:", error);
-        res.status(500).json({
-          message: "Internal server error",
-          error:
-            error instanceof Error
-              ? error.message
-              : "Unknown error occurred during problem creation",
-        });
+      let finalDifficulty = difficulty;
+      if (difficulty.length === 0) {
+        const defaultRank = await RankModel.findOne()
+          .sort({ minElo: 1 })
+          .select("_id");
+        if (defaultRank) {
+          finalDifficulty = [defaultRank._id];
+        }
       }
+
+      const newProblem = new problemModel({
+        title,
+        description,
+        difficulty: finalDifficulty,
+        rankDifficulty: finalRankDifficulty,
+        algorithmTypes,
+        author,
+        testCases: [],
+        timeout,
+        startDate,
+        endDate,
+        source_code,
+      });
+
+      await newProblem.save();
+
+      const savedTestCases = await Promise.all(
+        testCases.map((test: TestCaseInput) =>
+          new testcaseModel({
+            problem: newProblem._id,
+            input: test.input,
+            expectedOutput: test.expectedOutput,
+          }).save()
+        )
+      );
+
+      newProblem.testCases = savedTestCases.map((test) => test._id);
+      await newProblem.save();
+
+      const populatedProblem = await problemModel
+        .findById(newProblem._id)
+        .populate("difficulty")
+        .populate("rankDifficulty")
+        .populate("author")
+        .populate("testCases");
+
+      res.status(201).json({
+        message: "Problem created successfully",
+        problem: populatedProblem,
+      });
     }
   );
 
@@ -125,8 +133,11 @@ class Problems {
 
         const problems = await problemModel
           .find(filter)
-          .select("title description difficulty author createdAt")
+          .select(
+            "title description rankDifficulty difficulty author createdAt"
+          )
           .populate("difficulty", "name")
+          .populate("difficulty")
           .populate("author", "username")
           .skip((pageNumber - 1) * limitNumber)
           .limit(limitNumber)
@@ -172,6 +183,7 @@ class Problems {
             runValidators: true,
           })
           .populate("difficulty")
+          .populate("rankDifficulty")
           .populate("author");
 
         if (!updatedProblem) {
