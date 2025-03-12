@@ -8,4 +8,6 @@ router.get("/viewAllProblems", problemsController.ViewAllProblems);
 router.patch("/updateProblems/:id", problemsController.UpdateProblem)
 router.delete("/deleteProblems/:id", problemsController.DeleteProblem)
 
+router.get("/:id",problemsController.get)
+
 export default router;

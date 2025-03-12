@@ -6,5 +6,6 @@ const router = Router();
 
 router.post("/",auth,submissionController.evaluation)
 router.post("/run",submissionController.run)
+router.get("/history/:problemId",auth,submissionController.historySubmit)
 
 export default router

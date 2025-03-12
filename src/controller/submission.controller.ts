@@ -58,7 +58,17 @@ class SubmissionController{
         }
         const userId = req.user._id
         
-        const leaderboard = await Leaderboard.findOneAndUpdate({user:userId, problem:problemId},{$inc:{attempts:1},score:evaluate.point, time:evaluate.time, memory:evaluate.memory, oldSource:sourceCode,languageId:languageId},{new:true,upsert:true})
+        // const leaderboard = await Leaderboard.findOneAndUpdate({user:userId, problem:problemId},{$inc:{attempts:1},score:evaluate.point, time:evaluate.time, memory:evaluate.memory, oldSource:sourceCode,languageId:languageId},{new:true,upsert:true})
+
+        const leaderboard = await Leaderboard.create({
+            user:userId, 
+            problem:problemId,
+            score:evaluate.point, 
+            time:evaluate.time, 
+            memory:evaluate.memory, 
+            oldSource:sourceCode,
+            languageId:languageId
+        })
 
         await userModel.updateOne({_id:userId},{$inc:{xp:1}})
 
@@ -116,6 +126,18 @@ class SubmissionController{
         }
         evaluate.score = evaluate.point
         sendResponse(res,"success","done",httpCode.OK,evaluate)
+    })
+
+
+    historySubmit = expressAsyncHandler(async(req:Request,res:Response)=>{
+        const userId = req.user._id
+        const problemId = req.params.problemId
+
+        if(!problemId)
+            throw new AppError("Miss problemId",httpCode.FORBIDDEN,"warning")
+
+        const histories = await Leaderboard.find({user:userId,problem:problemId})
+        sendResponse(res,"success","done",httpCode.OK,histories)
     })
 
 }

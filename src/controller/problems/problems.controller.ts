@@ -5,6 +5,9 @@ import problemModel from "../../model/problem.model";
 import testcaseModel from "../../model/testcase.model";
 import RankModel from "../../model/rank.model";
 import mongoose from "mongoose";
+import { AppError } from "../../utils/AppError";
+import { httpCode } from "../../utils/httpCode";
+import sendResponse from "../../utils/response";
 
 interface TestCaseInput {
   input: string;
@@ -257,6 +260,18 @@ class Problems {
       }
     }
   );
+
+
+  get = expressAsyncHandler(async(req:Request,res:Response)=>{
+    const problemId = req.params.id
+    if(!problemId){
+      throw new AppError("Problem id is empty", httpCode.FORBIDDEN,"warning")
+    }
+    const problem = await problemModel.findById(problemId).select("title description difficulty")
+    if(!problem)
+      throw new AppError("Not found the problem",httpCode.FORBIDDEN,"warning")
+    sendResponse(res,"success","successfully",httpCode.OK,problem)
+  })
 }
 
 export default new Problems();

@@ -6,7 +6,7 @@ export interface IProblem extends Document {
   description: string;
   rankDifficulty: string[];
   algorithmTypes: string;
-  difficulty: mongoose.Types.ObjectId[];
+  difficulty: mongoose.Types.ObjectId;
   author: mongoose.Types.ObjectId;
   testCases: mongoose.Types.ObjectId[];
   createdAt: Date;
@@ -25,7 +25,7 @@ const problemSchema = new Schema<IProblem>(
       enum: ["easy", "medium", "hard"],
       required: true,
     },
-    difficulty: [{ type: Schema.Types.ObjectId, required: true, ref: "Rank" }],
+    difficulty: { type: Schema.Types.ObjectId, required: true, ref: "Rank" },
     algorithmTypes: { type: String, required: true },
     author: { type: Schema.Types.ObjectId, ref: "User", required: true },
     testCases: [{ type: Schema.Types.ObjectId, ref: "TestCase" }],
