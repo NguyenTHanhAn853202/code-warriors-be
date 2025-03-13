@@ -4,8 +4,8 @@ import mongooseDelete from "mongoose-delete";
 export interface IProblem extends Document {
   title: string;
   description: string;
-  rankDifficulty: string[];
-  algorithmTypes: string;
+  rankDifficulty: "easy" | "medium" | "hard";
+  algorithmTypes: mongoose.Types.ObjectId[];
   difficulty: mongoose.Types.ObjectId;
   author: mongoose.Types.ObjectId;
   testCases: mongoose.Types.ObjectId[];
@@ -21,12 +21,12 @@ const problemSchema = new Schema<IProblem>(
     title: { type: String, required: true },
     description: { type: String, required: true },
     rankDifficulty: {
-      type: [String],
+      type: String,
       enum: ["easy", "medium", "hard"],
       required: true,
     },
     difficulty: { type: Schema.Types.ObjectId, required: true, ref: "Rank" },
-    algorithmTypes: { type: String, required: true },
+    algorithmTypes: [{ type: Schema.Types.ObjectId, ref: "AlgorithmType" }],
     author: { type: Schema.Types.ObjectId, ref: "User", required: true },
     testCases: [{ type: Schema.Types.ObjectId, ref: "TestCase" }],
     timeout: { type: Number, default: 5000 },
