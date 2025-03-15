@@ -74,34 +74,32 @@ class Contests {
 
     ViewAllContests = expressAsyncHandler(async (req: Request, res: Response) => {
         try {
-            const { page = 1, limit = 10, difficulty, title } = req.query;
+            const { difficulty, title } = req.query;
             const filter: any = {};
+    
             if (difficulty) filter.difficulty = difficulty;
             if (title) filter.title = { $regex: title as string, $options: "i" };
-
+    
             const contests = await contestModel
                 .find(filter)
                 .populate("difficulty", "name")
                 .populate("author", "username")
-                .skip((+page - 1) * +limit)
-                .limit(+limit)
                 .sort({ createdAt: -1 });
-
-            const total = await contestModel.countDocuments(filter);
-
+    
             res.status(200).json({
                 message: "Contests retrieved successfully",
                 contests,
-                pagination: { currentPage: +page, totalPages: Math.ceil(total / +limit), totalContests: total },
+                totalContests: contests.length
             });
         } catch (error) {
-            console.error("Error deleting view:", error);
+            console.error("Error retrieving contests:", error);
             res.status(500).json({
                 message: "Internal server error",
                 error: error instanceof Error ? error.message : "Unknown error",
             });
         }
     });
+    
 
     UpdateContest = expressAsyncHandler(async (req: Request, res: Response) => {
         try {
@@ -170,6 +168,28 @@ class Contests {
             });
         }
     });
+    GetLatestContests = expressAsyncHandler(async (req: Request, res: Response) => {
+        try {
+            const latestContests = await contestModel
+                .find({})
+                .sort({ createdAt: -1 }) // Sắp xếp theo thời gian tạo mới nhất
+                .limit(3) // Giới hạn 3 contest
+                .populate("difficulty", "name")
+                .populate("author", "username");
+    
+            res.status(200).json({
+                message: "Latest contests retrieved successfully",
+                contests: latestContests,
+            });
+        } catch (error) {
+            console.error("Error fetching latest contests:", error);
+            res.status(500).json({
+                message: "Internal server error",
+                error: error instanceof Error ? error.message : "Unknown error",
+            });
+        }
+    });    
+    
 }
 
 export default new Contests();
