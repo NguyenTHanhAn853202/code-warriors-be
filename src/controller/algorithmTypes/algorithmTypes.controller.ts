@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import expressAsyncHandler from "express-async-handler";
-import algorithmType from "../../model/algorithmType";
+import algorithmType from "../../model/algorithmType.model";
 
 interface AlgorithmTypeInput {
   name: string;

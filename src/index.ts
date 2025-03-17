@@ -8,6 +8,8 @@ import logger from "./utils/logger";
 import connectDB from "./database";
 import router from "./routes/index.routes";
 import errorHandler from "./utils/errorHandler";
+import { setupSocket } from "./utils/roomSocket";
+import http, { Server } from "http";
 
 const app = express();
 
@@ -29,11 +31,25 @@ connectDB();
 app.use(errorHandler);
 
 app.use((req: Request, res: Response, next: NextFunction) => {
-    logger.info(`HTTP ${req.method} ${req.url}`);
-    next();
+  logger.info(`HTTP ${req.method} ${req.url}`);
+  next();
 });
 
-app.listen(PORT, () => {
-    console.log("listening on port: ", PORT);
-    logger.info("listening on port: " + PORT);
+//////////////////////
+
+const server = http.createServer(app);
+const io = setupSocket(server);
+io.on("connection", (socket) => {
+  console.log("A user connected:", socket.id);
+
+  socket.on("disconnect", () => {
+    console.log("A user disconnected");
+  });
+});
+
+///////////////////
+
+server.listen(PORT, () => {
+  console.log("listening on port: ", PORT);
+  logger.info("listening on port: " + PORT);
 });

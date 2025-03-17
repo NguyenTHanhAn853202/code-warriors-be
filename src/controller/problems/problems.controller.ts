@@ -7,7 +7,7 @@ import mongoose from "mongoose";
 import { AppError } from "../../utils/AppError";
 import { httpCode } from "../../utils/httpCode";
 import sendResponse from "../../utils/response";
-import algorithmType from "../../model/algorithmType";
+import algorithmType from "../../model/algorithmType.model";
 
 interface TestCaseInput {
   input: string;
@@ -50,7 +50,6 @@ class Problems {
           return algorithm._id;
         })
       );
-
 
       // Kiểm tra testCases hợp lệ
       if (testCases.length > 0) {
@@ -138,12 +137,10 @@ class Problems {
 
         const problems = await problemModel
           .find(filter)
-          .select(
-            "title description difficulty author createdAt"
-          )
+          .select("title description difficulty author createdAt")
           .populate("difficulty", "name")
-          .populate("difficulty")
-          .populate("algorithmTypes")
+          // .populate("difficulty")
+          .populate("algorithmTypes", "name")
           .populate("author", "username")
           .skip((pageNumber - 1) * limitNumber)
           .limit(limitNumber)
