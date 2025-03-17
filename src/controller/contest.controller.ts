@@ -54,80 +54,28 @@ class ContestController {
 
         sendResponse(res, "success", "Contest created successfully", httpCode.OK, { contest: newContest });
     });
-//////////////////////////////////////////////////////////////thinh chua sua
-    ViewAllContests = expressAsyncHandler(async (req: Request, res: Response) => {
-        try {
-            const { difficulty, title } = req.query;
-            const filter: any = {};
-    
-            if (difficulty) filter.difficulty = difficulty;
-            if (title) filter.title = { $regex: title as string, $options: "i" };
-    
-            const contests = await contestModel
-                .find(filter)
-                .populate("difficulty", "name")
-                .populate("author", "username")
-                .sort({ createdAt: 1 });
-    
-            res.status(200).json({
-                message: "Contests retrieved successfully",
-                contests,
-                totalContests: contests.length
-            });
-        } catch (error) {
-            console.error("Error retrieving contests:", error);
-            res.status(500).json({
-                message: "Internal server error",
-                error: error instanceof Error ? error.message : "Unknown error",
-            });
-        }
+
+    viewAllContests = expressAsyncHandler(async (req: Request, res: Response) => {
+        const contests = await contestModel
+            .find({})
+            .sort({ createdAt: 1 })
+            .select("title difficulty startDate endDate")
+            .populate("difficulty", "name");
+
+        sendResponse(res, "success", "Contests retrieved successfully", httpCode.OK, { contests });
     });
 
     GetLatestContests = expressAsyncHandler(async (req: Request, res: Response) => {
-        try {
-            const latestContests = await contestModel
-                .find({})
-                .sort({ createdAt: -1 })
-                .limit(3) 
-                .populate("difficulty", "name")
-                .populate("author", "username");
-    
-            res.status(200).json({
-                message: "Latest contests retrieved successfully",
-                contests: latestContests,
-            });
-        } catch (error) {
-            console.error("Error fetching latest contests:", error);
-            res.status(500).json({
-                message: "Internal server error",
-                error: error instanceof Error ? error.message : "Unknown error",
-            });
-        }
-    });    
-    getMyContests = expressAsyncHandler(async (req: Request, res: Response) => {
-        const userId = req.user?._id; 
-        if (!userId) {
-            throw new AppError("Unauthorized", 401, "error");
-        }
-    
-        const { difficulty, title } = req.query;
-        const filter: any = { author: userId };
-    
-        if (difficulty) filter.difficulty = difficulty;
-        if (title) filter.title = { $regex: title as string, $options: "i" };
-    
-        const contests = await contestModel
-            .find(filter)
+        const latestContests = await contestModel
+            .find({})
+            .sort({ createdAt: -1 })
+            .limit(3)
             .populate("difficulty", "name")
-            .populate("author", "username")
-            .sort({ createdAt: -1 });
+            .populate("author", "username");
     
-        sendResponse(res, "success", "My contests retrieved successfully", 200, {
-            contests,
-            totalContests: contests.length,
-        });
+        sendResponse(res, "success", "Latest contests retrieved successfully", httpCode.OK, { contests: latestContests });
     });
-////////////////////////////////////////////////////////////////////thinh chưa sửa đc
+    
     viewContestDetail = expressAsyncHandler(async (req: Request, res: Response) => {
         const { id } = req.params;
         const contest = await contestModel
