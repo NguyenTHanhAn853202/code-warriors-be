@@ -8,8 +8,23 @@ import logger from './utils/logger'
 import connectDB from './database'
 import router from './routes/index.routes'
 import errorHandler from './utils/errorHandler'
+import http from 'http';
+import { Server } from 'socket.io';
+import socketApp from './socket'
+
 
 const app = express()
+const server = http.createServer(app);
+const io = new Server(server, {
+    cors: {
+      origin: "http://localhost:3000",     
+      credentials: true,             
+    }
+  });
+
+socketApp(io)
+
+app.locals.io = io
 
 app.use(morgan("dev"))
 
@@ -19,6 +34,7 @@ app.use(express.static(path.join(__dirname,'public')))
 
 app.use(bodyParser.json())
 app.use(bodyParser.urlencoded({ extended: true}))
+
 
 // routes
 router(app)
@@ -33,7 +49,7 @@ app.use((req:Request,res:Response,next:NextFunction)=>{
     next();
 })
 
-app.listen(PORT,()=>{
+server.listen(PORT,()=>{
     console.log("listening on port: ", PORT)
     logger.info("listening on port: " +PORT)
 })
