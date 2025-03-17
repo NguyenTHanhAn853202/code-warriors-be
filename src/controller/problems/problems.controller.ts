@@ -21,7 +21,6 @@ class Problems {
         title,
         description,
         difficulty = [],
-        rankDifficulty = [],
         algorithmTypes = [],
         author,
         testCases = [],
@@ -52,11 +51,6 @@ class Problems {
         })
       );
 
-      // Xử lý rankDifficulty
-      const validRanks = ["easy", "medium", "hard"];
-      const finalRankDifficulty = validRanks.includes(rankDifficulty)
-        ? rankDifficulty
-        : "easy";
 
       // Kiểm tra testCases hợp lệ
       if (testCases.length > 0) {
@@ -89,7 +83,6 @@ class Problems {
         title,
         description,
         difficulty: finalDifficulty,
-        rankDifficulty: finalRankDifficulty,
         algorithmTypes: algorithmIds,
         author,
         testCases: [],
@@ -120,7 +113,6 @@ class Problems {
       const populatedProblem = await problemModel
         .findById(newProblem._id)
         .populate("difficulty")
-        .populate("rankDifficulty")
         .populate("author")
         .populate("testCases")
         .populate("algorithmTypes");
@@ -147,7 +139,7 @@ class Problems {
         const problems = await problemModel
           .find(filter)
           .select(
-            "title description rankDifficulty difficulty author createdAt"
+            "title description difficulty author createdAt"
           )
           .populate("difficulty", "name")
           .populate("difficulty")
@@ -197,7 +189,6 @@ class Problems {
             runValidators: true,
           })
           .populate("difficulty")
-          .populate("rankDifficulty")
           .populate("algorithmTypes")
           .populate("author");
 

@@ -15,11 +15,11 @@ export interface IUser extends Document {
 const userSchema = new Schema<IUser>(
   {
     username: { type: String, unique: true, required: true },
-    email: { type: String},
+    email: { type: String },
     password: { type: String, required: true },
     role: { type: String, enum: ["user", "admin"], default: "user" },
     xp: { type: Number, default: 0 },
-    elo: { type: Number, default: 1000 },
+    elo: { type: Number, default: 0 },
     rank: { type: Schema.Types.ObjectId, ref: "Rank" },
   },
   { timestamps: true }
