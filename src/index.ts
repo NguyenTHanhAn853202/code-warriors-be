@@ -26,28 +26,28 @@ socketApp(io)
 
 app.locals.io = io
 
-app.use(morgan("dev"))
+app.use(morgan("dev"));
 
-app.use(cors())
+app.use(cors());
 
-app.use(express.static(path.join(__dirname,'public')))
+app.use(express.static(path.join(__dirname, "public")));
 
-app.use(bodyParser.json())
-app.use(bodyParser.urlencoded({ extended: true}))
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
 
 
 // routes
-router(app)
+router(app);
 
 // connectDB
-connectDB()
+connectDB();
 
-app.use(errorHandler)
+app.use(errorHandler);
 
-app.use((req:Request,res:Response,next:NextFunction)=>{
+app.use((req: Request, res: Response, next: NextFunction) => {
     logger.info(`HTTP ${req.method} ${req.url}`);
     next();
-})
+});
 
 server.listen(PORT,()=>{
     console.log("listening on port: ", PORT)
