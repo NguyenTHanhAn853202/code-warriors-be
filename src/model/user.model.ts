@@ -2,7 +2,7 @@ import mongoose, { Document, Schema } from "mongoose";
 import mongooseDelete from "mongoose-delete";
 
 export interface IUser extends Document {
-  username: string;
+  username: string; 
   email: string;
   password: string;
   role: "user" | "admin";
