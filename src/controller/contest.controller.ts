@@ -59,7 +59,7 @@ class ContestController {
         const contests = await contestModel
             .find({})
             .sort({ createdAt: 1 })
-            .select("title description difficulty startDate endDate")
+            .select("title description difficulty startDate endDate source_code")
             .populate("difficulty", "name");
 
         sendResponse(res, "success", "Contests retrieved successfully", httpCode.OK, { contests });
@@ -72,10 +72,12 @@ class ContestController {
             .limit(3)
             .populate("difficulty", "name")
             .populate("author", "username");
-    
-        sendResponse(res, "success", "Latest contests retrieved successfully", httpCode.OK, { contests: latestContests });
+
+        sendResponse(res, "success", "Latest contests retrieved successfully", httpCode.OK, {
+            contests: latestContests,
+        });
     });
-    
+
     viewContestDetail = expressAsyncHandler(async (req: Request, res: Response) => {
         const { id } = req.params;
         const contest = await contestModel
@@ -102,18 +104,16 @@ class ContestController {
             description,
             difficulty,
             startDate,
-            endDate
+            endDate,
         };
-        const contest = await contestModel.findByIdAndUpdate(
-            id, 
-            updates, 
-            { new: true, runValidators: true }
-        ).populate("difficulty", "name");
-        
+        const contest = await contestModel
+            .findByIdAndUpdate(id, updates, { new: true, runValidators: true })
+            .populate("difficulty", "name");
+
         if (!contest) {
             throw new AppError("Contest not found", httpCode.NOT_FOUND, "error");
         }
-        
+
         sendResponse(res, "success", "Contest updated successfully", httpCode.OK, { contest });
     });
 
