@@ -6,6 +6,7 @@ import { AppError } from "../utils/AppError";
 import userModel from "../model/user.model";
 import problemModel from "../model/problem.model";
 import testcaseModel from "../model/testcase.model";
+import { registerService } from "../service/user.service";
 
 
 export const getUser = expressAsyncHandler(async(req:Request,res:Response)=>{
@@ -26,4 +27,20 @@ export const getUser = expressAsyncHandler(async(req:Request,res:Response)=>{
         expectedOutput: "test output",
     })
     sendResponse(res,"success","get user success",httpCode.OK,{data,testcase})
+})
+
+export const register = expressAsyncHandler(async(req:Request,res:Response)=>{
+    const {username,password,repeatPassword} = req.body
+    // handle logic
+
+    // 
+    const token = await registerService(username,password)
+    // kiem tra token null khong va bao loi
+
+    // 
+    res.cookie("token",token,{
+        secure:true,
+        httpOnly:true
+    })
+    sendResponse(res,"success","Register successfully",httpCode.OK)
 })

@@ -1,5 +1,5 @@
 import { Server } from "socket.io";
-import findMatch from "./findMatch";
+import findMatch, { leaveWaiting } from "./findMatch";
 import statusMatch from "./statusMatch";
 
 function socketApp(io:Server) {
@@ -7,6 +7,7 @@ function socketApp(io:Server) {
         console.log("connect to " + socket.id);
         findMatch(socket,io)
         statusMatch(socket,io)
+        leaveWaiting(socket,io)
     })
    
 }
