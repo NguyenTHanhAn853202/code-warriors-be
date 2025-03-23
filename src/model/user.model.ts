@@ -25,7 +25,7 @@ const userSchema = new Schema<IUser>(
     password: { type: String, required: true },
     role: { type: String, enum: ["user", "admin"], default: "user" },
     xp: { type: Number, default: 0 },
-    elo: { type: Number, default: 1000 },
+    elo: { type: Number, default: 0 },
     rank: { type: Schema.Types.ObjectId, ref: "Rank" },
   },
   { timestamps: true }

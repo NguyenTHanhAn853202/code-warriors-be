@@ -7,7 +7,7 @@ import mongoose from "mongoose";
 import { AppError } from "../../utils/AppError";
 import { httpCode } from "../../utils/httpCode";
 import sendResponse from "../../utils/response";
-import algorithmType from "../../model/algorithmType";
+import algorithmType from "../../model/algorithmType.model";
 
 interface TestCaseInput {
   input: string;
@@ -21,7 +21,6 @@ class Problems {
         title,
         description,
         difficulty = [],
-        rankDifficulty = [],
         algorithmTypes = [],
         author,
         testCases = [],
@@ -51,12 +50,6 @@ class Problems {
           return algorithm._id;
         })
       );
-
-      // Xử lý rankDifficulty
-      const validRanks = ["easy", "medium", "hard"];
-      const finalRankDifficulty = validRanks.includes(rankDifficulty)
-        ? rankDifficulty
-        : "easy";
 
       // Kiểm tra testCases hợp lệ
       if (testCases.length > 0) {
@@ -89,7 +82,6 @@ class Problems {
         title,
         description,
         difficulty: finalDifficulty,
-        rankDifficulty: finalRankDifficulty,
         algorithmTypes: algorithmIds,
         author,
         testCases: [],
@@ -120,7 +112,6 @@ class Problems {
       const populatedProblem = await problemModel
         .findById(newProblem._id)
         .populate("difficulty")
-        .populate("rankDifficulty")
         .populate("author")
         .populate("testCases")
         .populate("algorithmTypes");
@@ -146,12 +137,10 @@ class Problems {
 
         const problems = await problemModel
           .find(filter)
-          .select(
-            "title description rankDifficulty difficulty author createdAt"
-          )
+          .select("title description difficulty author createdAt")
           .populate("difficulty", "name")
-          .populate("difficulty")
-          .populate("algorithmTypes")
+          // .populate("difficulty")
+          .populate("algorithmTypes", "name")
           .populate("author", "username")
           .skip((pageNumber - 1) * limitNumber)
           .limit(limitNumber)
@@ -197,7 +186,6 @@ class Problems {
             runValidators: true,
           })
           .populate("difficulty")
-          .populate("rankDifficulty")
           .populate("algorithmTypes")
           .populate("author");
 
