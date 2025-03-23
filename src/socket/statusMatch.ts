@@ -3,8 +3,8 @@ import matchModel, { IMatch } from "../model/match.model";
 
 function statusMatch(socket:Socket,io:Server) {
     socket.on("accept_match",async(data)=>{ 
-        const {userId,matchId,roomId} = data
-        
+        const userId = socket.user._id
+        const {matchId,roomId} = data
         const match = await matchModel.findById(matchId)
         if(match === null){
             socket.send({sucess:false,message:"Dont find the match"})
@@ -15,7 +15,7 @@ function statusMatch(socket:Socket,io:Server) {
         }
         else{
             match.player2 = userId
-            socket.to(roomId).emit("start_match",{
+            io.to(roomId).emit("start_match",{
                 matchId,
                 roomId,
                 success:true
@@ -25,11 +25,12 @@ function statusMatch(socket:Socket,io:Server) {
 
     })
     socket.on("reject_match",async(data)=>{
-        const {userId, matchId,roomId} = data
+        const userId = socket.user._id
+        const { matchId,roomId} = data
         const isDeleted = await matchModel.deleteOne({_id:matchId}) 
         if(isDeleted.deletedCount>0 && isDeleted.acknowledged){
-            socket.broadcast.to(roomId).emit("reject_match",{
-                sucess:true,
+            io.to(roomId).emit("reject_match",{
+                success:true,
                 userId, matchId,roomId
             })
         }

@@ -25,3 +25,7 @@ export const auth = expressAsyncHandler(async(req:Request,res:Response,next:Next
     req.user = user
     next()
 })
+
+export const authSocket = expressAsyncHandler(async(req:Request,res:Response,next:NextFunction)=>{
+  
+})
