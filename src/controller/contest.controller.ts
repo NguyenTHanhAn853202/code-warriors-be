@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import { Request, Response } from "express";
 import expressAsyncHandler from "express-async-handler";
 import contestModel from "../model/problem.model";
@@ -60,7 +61,8 @@ class ContestController {
             .find({})
             .sort({ createdAt: 1 })
             .select("title description difficulty startDate endDate source_code")
-            .populate("difficulty", "name");
+            .populate("difficulty", "name")
+            .populate("testCases", "input expectedOutput");
 
         sendResponse(res, "success", "Contests retrieved successfully", httpCode.OK, { contests });
     });
@@ -92,31 +94,54 @@ class ContestController {
 
         sendResponse(res, "success", "Contest details retrieved", httpCode.OK, { contest });
     });
-
     updateContest = expressAsyncHandler(async (req: Request, res: Response) => {
         const { id } = req.params;
-        const { title, description, difficulty, startDate, endDate } = req.body;
-        if (!title || !difficulty) {
-            throw new AppError("Title and difficulty are required", httpCode.BAD_REQUEST, "error");
-        }
-        const updates = {
-            title,
-            description,
-            difficulty,
-            startDate,
-            endDate,
-        };
-        const contest = await contestModel
-            .findByIdAndUpdate(id, updates, { new: true, runValidators: true })
-            .populate("difficulty", "name");
-
+        const { title, description, difficulty, startDate, endDate, source_code, testCases } = req.body;
+        const contest = await contestModel.findById(id);
         if (!contest) {
             throw new AppError("Contest not found", httpCode.NOT_FOUND, "error");
         }
 
-        sendResponse(res, "success", "Contest updated successfully", httpCode.OK, { contest });
-    });
+        let finalDifficulty = difficulty;
+        if (difficulty && difficulty.length > 0) {
+            const rankDocs = await rankModel.find({ name: { $in: difficulty } }).select("_id");
+            finalDifficulty = rankDocs.length > 0 ? rankDocs.map(rank => rank._id) : contest.difficulty;
+        }
+        let formattedTestCases = contest.testCases;
+        if (Array.isArray(testCases) && testCases.length > 0) {
+            formattedTestCases = await Promise.all(
+                testCases.map(async (tc) => {
+                    if (mongoose.Types.ObjectId.isValid(tc)) return tc;
+                    const newTestCase = await testcaseModel.create({
+                        problem: id,
+                        input: tc.input?.trim() || "",
+                        expectedOutput: tc.expectedOutput?.trim() || "",
+                    });
+                    return newTestCase._id;
+                })
+            );
+        }
 
+        const updates = {
+            title: title || contest.title,
+            description: description || contest.description,
+            difficulty: finalDifficulty,
+            startDate: startDate || contest.startDate,
+            endDate: endDate || contest.endDate,
+            source_code: source_code || contest.source_code,
+            testCases: formattedTestCases,
+        };
+    
+        const updatedContest = await contestModel
+            .findByIdAndUpdate(id, updates, { new: true, runValidators: true })
+            .populate("difficulty", "name")
+            .populate("testCases");
+    
+        sendResponse(res, "success", "Contest updated successfully", httpCode.OK, { contest: updatedContest });
+    });
+    
+
+    
     deleteContest = expressAsyncHandler(async (req: Request, res: Response) => {
         const { id } = req.params;
         const contest = await contestModel.findByIdAndDelete(id);
