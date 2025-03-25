@@ -9,6 +9,7 @@ import problemModel from "../model/problem.model";
 import { AppError } from "../utils/AppError";
 import Leaderboard from "../model/leaderboard.model";
 import userModel from "../model/user.model";
+import runCode from "../utils/runCode";
 
 
 class SubmissionController{
@@ -21,44 +22,12 @@ class SubmissionController{
             throw new AppError("Not found problem",httpCode.BAD_REQUEST,"warning")
         }
 
-        let evaluate = {
-            point:0,
-            time:0,
-            memory:0
-        } 
         
-        for(let i=0; i<testcases.length; i++){
-            const judge0 = await fetch(`${URL_JUDGE0}/submissions?base64_encoded=false&wait=true`,{
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    language_id:languageId,
-                    source_code: sourceCode,
-                    stdin: testcases[i].input,
-                    expected_output:testcases[i].expectedOutput
-                })
-            })
-            const result  = await judge0.json()
-            
-            if(result.status?.id !== Judge0Status.Accepted){
-                
-                throw new AppError(result?.stderr || result?.status?.description || result?.error,httpCode.OK,"warning",{
-                    testcase:testcases[i],
-                    result:result
-                })
-            }
-            if(result.time*1000 <= problem?.timeout){
-                evaluate.point++;
-            }
-            evaluate.time += result.time*1000
-            evaluate.memory += result.memory
-            
-        }
         const userId = req.user._id
         
         // const leaderboard = await Leaderboard.findOneAndUpdate({user:userId, problem:problemId},{$inc:{attempts:1},score:evaluate.point, time:evaluate.time, memory:evaluate.memory, oldSource:sourceCode,languageId:languageId},{new:true,upsert:true})
+
+        const evaluate = await runCode(languageId,sourceCode,testcases,problem.timeout)
 
         const leaderboard = await Leaderboard.create({
             user:userId, 
@@ -88,42 +57,8 @@ class SubmissionController{
             throw new AppError("Not found problem",httpCode.BAD_REQUEST,"warning")
         }
 
-        let evaluate = {
-            point:0,
-            time:0,
-            memory:0,
-            score:0
-        } 
+        const evaluate:any = await runCode(languageId,sourceCode,testcases,problem.timeout)
         
-        for(let i=0; i<testcases.length; i++){
-            const judge0 = await fetch(`${URL_JUDGE0}/submissions?base64_encoded=false&wait=true`,{
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    language_id:languageId,
-                    source_code: sourceCode,
-                    stdin: testcases[i].input,
-                    expected_output:testcases[i].expectedOutput
-                })
-            })
-            const result  = await judge0.json()
-            
-            if(result.status?.id !== Judge0Status.Accepted){
-                
-                throw new AppError(result?.stderr || result?.status?.description || result?.error,httpCode.OK,"warning",{
-                    testcase:testcases[i],
-                    result:result
-                })
-            }
-            if(result.time*1000 <= problem?.timeout){
-                evaluate.point++;
-            }
-            evaluate.time += result.time*1000
-            evaluate.memory += result.memory
-            
-        }
         evaluate.score = evaluate.point
         sendResponse(res,"success","done",httpCode.OK,evaluate)
     })

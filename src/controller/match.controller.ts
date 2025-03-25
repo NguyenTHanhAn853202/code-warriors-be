@@ -25,6 +25,18 @@ class MatchController{
           );
         sendResponse(res, "success", "successfully", httpCode.OK, problem);
       });
+
+      getResult = expressAsyncHandler(async(req: Request, res: Response)=>{
+        const matchId = req.params.matchId
+        const match = await matchModel.findById(matchId).populate(["player1","player2","player1Submissions","player2Submissions"])
+        console.log(match);
+        
+        sendResponse(res, "success", "successfully", httpCode.OK,match);
+      })
+
+    matchSubmission = expressAsyncHandler(async(req:Request,res:Response)=>{
+      
+    })
 }
 
 export default new MatchController()

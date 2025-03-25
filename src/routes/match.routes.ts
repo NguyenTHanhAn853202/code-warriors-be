@@ -5,5 +5,6 @@ import matchController from "../controller/match.controller";
 const router = Router();
 
 router.get("/:id",matchController.getProblem)
+router.get("/result/:matchId",matchController.getResult)
 
 export default router

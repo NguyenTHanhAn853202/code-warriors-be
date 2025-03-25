@@ -23,7 +23,7 @@ const matchSchema = new Schema<IMatch>(
     winner: { type: Schema.Types.ObjectId, ref: "User", default: null },
     status: { type: String, enum: ["Pending", "Ongoing", "Completed"], default: "Pending" },
     startedAt: { type: Date, default: null },
-    endedAt: { type: Date, default: null },
+    endedAt: { type: Date, default: new Date(Date.now() + 10* 60 *1000) },
   },
   { timestamps: true }
 );

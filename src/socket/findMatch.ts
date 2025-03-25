@@ -5,7 +5,7 @@ import matchModel from "../model/match.model";
 import getRankId from "../service/rank";
 import rankModel from "../model/rank.model";
 import userModel from "../model/user.model";
-import { ObjectId } from "mongoose";
+import mongoose, { ObjectId } from "mongoose";
 import problemModel from "../model/problem.model";
 
 type TwaitingUsers = {
@@ -51,8 +51,11 @@ function findMatch(socket:Socket,io:Server) {
                     return
                 }
                  const competitor = waitingUsers.splice(indexCompetitor,1)[0]
-                 const roomId = uuidv4()
                  const match = await matchModel.create({problems:problem._id})
+                 if(!match)
+                    return
+                 const roomId:string = (match._id as mongoose.Types.ObjectId).toString()
+                 console.log(roomId);
                  
                  socket.join(roomId)
                  competitor.socket.join(roomId)

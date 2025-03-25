@@ -21,10 +21,14 @@ import jwt from "jsonwebtoken";
 
 
 const app = express();
+app.use(cors({ 
+  origin: "http://localhost:3000", 
+  credentials: true 
+}));
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: "*",
+    origin: "http://localhost:3000",
     credentials: true,
   },
 });
@@ -34,8 +38,6 @@ socketApp(io);
 app.locals.io = io;
 
 app.use(morgan("dev"));
-
-app.use(cors());
 
 app.use(express.static(path.join(__dirname, "public")));
 
@@ -70,7 +72,9 @@ io.use((socket,next)=>{
   const cookie = cookies.filter((item)=> item.split("=")[0].includes('token'))
   const token = cookie[0].split("=")[1]
   const decoded = jwt.verify(token,TOKEN_KEY)
+  console.log("hah");
   if(!decoded){
+    
     throw new AppError("token was expired",httpCode.UNAUTHORIZED,"error")
   }
   console.log(decoded);

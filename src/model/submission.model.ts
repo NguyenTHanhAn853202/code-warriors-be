@@ -13,6 +13,7 @@ export interface ISubmission extends Document {
     results: mongoose.Types.ObjectId[];
     grade: number;
     createdAt: Date;
+    timeSubmission:number
   }
   
 const submissionSchema = new Schema<ISubmission>(
@@ -25,11 +26,12 @@ const submissionSchema = new Schema<ISubmission>(
       status: { type: String, enum: ["Pending", "Accepted", "Wrong Answer", "Runtime Error"], default: "Pending" },
       executionTime: { type: Number, default: 0 },
       memoryUsage: { type: Number, default: 0 },
-      grade: { type: Number, default:0}
+      grade: { type: Number, default:0},
+      timeSubmission:{type:Number}
     },
     { timestamps: true }
   );
   
 submissionSchema.plugin(mongooseDelete, { deletedAt: true, overrideMethods: "all" });
 
-export default mongoose.model<ISubmission>("TestCase", submissionSchema);
+export default mongoose.model<ISubmission>("Submission", submissionSchema);
