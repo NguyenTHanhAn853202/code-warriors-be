@@ -15,113 +15,127 @@ interface TestCaseInput {
 }
 
 class Problems {
-  CreateProblems = expressAsyncHandler(
-    async (req: Request, res: Response): Promise<void> => {
-      const {
-        title,
-        description,
-        difficulty = [],
-        algorithmTypes = [],
-        author,
-        testCases = [],
-        timeout = 5000,
-        startDate = new Date(),
-        endDate,
-        source_code,
-      } = req.body;
+  CreateProblems = expressAsyncHandler(async (req: Request, res: Response) => {
+    console.log(" CreateProblems function is running...");
+    const {
+      title,
+      description,
+      difficulty = [],
+      algorithmTypes = [],
+      author,
+      testCases = [],
+      timeout = 5000,
+      startDate = new Date(),
+      endDate,
+      source_code,
+    } = req.body;
 
-      // Kiểm tra các trường bắt buộc
-      const requiredFields = ["title", "description", "author"];
-      const missingFields = requiredFields.filter((field) => !req.body[field]);
-
-      if (missingFields.length > 0) {
-        res
-          .status(400)
-          .json({ message: "Missing required fields", missingFields });
-      }
-
-      // Xử lý algorithmTypes
-      const algorithmIds = await Promise.all(
-        algorithmTypes.map(async (algoName: string) => {
-          let algorithm = await algorithmType.findOne({ name: algoName });
-          if (!algorithm) {
-            algorithm = await new algorithmType({ name: algoName }).save();
-          }
-          return algorithm._id;
-        })
+    const requiredFields = ["title", "description", "author"];
+    const missingFields = requiredFields.filter((field) => !req.body[field]);
+    if (missingFields.length > 0) {
+      return sendResponse(
+        res,
+        "error",
+        `Thiếu các trường bắt buộc: ${missingFields.join(", ")}`,
+        httpCode.BAD_REQUEST,
+        {}
       );
-
-      // Kiểm tra testCases hợp lệ
-      if (testCases.length > 0) {
-        const invalidTestCases = testCases.filter(
-          (testCase: TestCaseInput) =>
-            !testCase.input || !testCase.expectedOutput
-        );
-
-        if (invalidTestCases.length > 0) {
-          res.status(400).json({
-            message: "Invalid test cases",
-            details: "Each test case must have both input and expectedOutput",
-          });
-        }
-      }
-
-      // Xử lý difficulty
-      let finalDifficulty = difficulty;
-      if (finalDifficulty.length === 0) {
-        const defaultRank = await RankModel.findOne()
-          .sort({ minElo: 1 })
-          .select("_id");
-        if (defaultRank) {
-          finalDifficulty = [defaultRank._id];
-        }
-      }
-
-      // Tạo bài toán mới
-      const newProblem = new problemModel({
-        title,
-        description,
-        difficulty: finalDifficulty,
-        algorithmTypes: algorithmIds,
-        author,
-        testCases: [],
-        timeout,
-        startDate,
-        endDate,
-        source_code,
-      });
-
-      await newProblem.save();
-
-      // Tạo và lưu test cases
-      const savedTestCases = await Promise.all(
-        testCases.map((test: TestCaseInput) =>
-          new testcaseModel({
-            problem: newProblem._id,
-            input: test.input,
-            expectedOutput: test.expectedOutput,
-          }).save()
-        )
-      );
-
-      // Cập nhật testCases vào bài toán
-      newProblem.testCases = savedTestCases.map((test) => test._id);
-      await newProblem.save();
-
-      // Populate dữ liệu trước khi trả về
-      const populatedProblem = await problemModel
-        .findById(newProblem._id)
-        .populate("difficulty")
-        .populate("author")
-        .populate("testCases")
-        .populate("algorithmTypes");
-
-      res.status(201).json({
-        message: "Problem created successfully",
-        problem: populatedProblem,
-      });
     }
-  );
+
+    const validRankNames = ["Bronze", "Silver", "Gold", "Platinum"];
+    const invalidRanks = difficulty.filter(
+      (rank: string) => !validRankNames.includes(rank)
+    );
+
+    if (invalidRanks.length > 0) {
+      return sendResponse(
+        res,
+        "error",
+        `Các rank không hợp lệ: ${invalidRanks.join(
+          ", "
+        )}. Sử dụng một trong các rank: ${validRankNames.join(", ")}`,
+        httpCode.BAD_REQUEST,
+        {}
+      );
+    }
+
+    const validRanks = await RankModel.find({ name: { $in: difficulty } });
+    console.log("Difficulty nhận được:", difficulty);
+    console.log("Ranks tìm thấy:", validRanks);
+
+    if (validRanks.length !== difficulty.length) {
+      return sendResponse(
+        res,
+        "error",
+        "Không tìm thấy đủ các rank trong database. Vui lòng chạy API createRanks trước.",
+        httpCode.BAD_REQUEST,
+        {}
+      );
+    }
+
+    const algorithmIds = await algorithmType
+      .find({ name: { $in: algorithmTypes } }) // Lọc các thuật toán có sẵn
+      .select("_id") // Chỉ lấy _id
+      .then((algorithms) => algorithms.map((algo) => algo._id));
+
+    if (algorithmIds.length !== algorithmTypes.length) {
+      return sendResponse(
+        res,
+        "error",
+        "Không tìm thấy thuật toán . Vui lòng kiểm tra lại.",
+        httpCode.BAD_REQUEST,
+        {}
+      );
+    }
+
+    if (testCases.length > 0) {
+      const invalidTestCases = testCases.filter(
+        (testCase: TestCaseInput) => !testCase.input || !testCase.expectedOutput
+      );
+
+      if (invalidTestCases.length > 0) {
+        res.status(400).json({
+          message: "Invalid test cases",
+          details: "Each test case must have both input and expectedOutput",
+        });
+      }
+    }
+
+    const newProblem = await problemModel.create({
+      title,
+      description,
+      difficulty: validRanks.map((rank) => rank._id),
+      algorithmTypes: algorithmIds,
+      author,
+      testCases: [],
+      timeout,
+      startDate: startDate ? new Date(startDate) : new Date(),
+      endDate: endDate ? new Date(endDate) : undefined,
+      source_code,
+    });
+
+    const savedTestCases = await Promise.all(
+      testCases.map((test: TestCaseInput) =>
+        new testcaseModel({
+          problem: newProblem._id,
+          input: test.input,
+          expectedOutput: test.expectedOutput,
+        }).save()
+      )
+    );
+    newProblem.testCases = savedTestCases.map((test) => test._id);
+    await newProblem.save();
+    const populatedProblem = await problemModel
+      .findById(newProblem._id)
+      .populate("difficulty", "name")
+      .populate("author")
+      .populate("testCases", "input")
+      .populate("algorithmTypes", "name");
+
+    sendResponse(res, "success", "Problem created successfully", httpCode.OK, {
+      problem: populatedProblem,
+    });
+  });
 
   ViewAllProblems = expressAsyncHandler(
     async (req: Request, res: Response, next: NextFunction): Promise<void> => {
