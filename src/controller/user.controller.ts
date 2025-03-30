@@ -35,6 +35,15 @@ export const register = expressAsyncHandler(async (req: Request, res: Response) 
         throw new AppError("Missing required fields", httpCode.BAD_REQUEST, "error");
     }
 
+    const passwordRegex = /^(?=.*[a-zA-Z])(?=.*\d)(?=.*[A-Z]).{6,}$/; // Mật khẩu phải có ít nhất 6 ký tự, chứa ít nhất 1 chữ cái, 1 chữ số và 1 chữ hoa
+    if (!passwordRegex.test(password)) {
+        throw new AppError(
+            "Password must be at least 6 characters long and contain at least one letter, one number, and one uppercase letter",
+            httpCode.BAD_REQUEST,
+            "error"
+        );
+    }
+
     if (password !== repeatPassword) {
         throw new AppError("Passwords do not match", httpCode.BAD_REQUEST, "error");
     }
