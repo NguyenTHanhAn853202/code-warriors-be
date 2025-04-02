@@ -29,13 +29,20 @@ export const getUser = expressAsyncHandler(async (req: Request, res: Response) =
 });
 
 export const register = expressAsyncHandler(async (req: Request, res: Response) => {
-    const { username, password, repeatPassword } = req.body;
+    const { username, email, password, repeatPassword } = req.body;
 
-    if (!username || !password || !repeatPassword) {
+    if (!username || !email || !password || !repeatPassword) {
         throw new AppError("Missing required fields", httpCode.BAD_REQUEST, "error");
     }
 
-    const passwordRegex = /^(?=.*[a-zA-Z])(?=.*\d)(?=.*[A-Z]).{6,}$/; // Mật khẩu phải có ít nhất 6 ký tự, chứa ít nhất 1 chữ cái, 1 chữ số và 1 chữ hoa
+    // Kiểm tra email có đúng định dạng hay không
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!emailRegex.test(email)) {
+        throw new AppError("Invalid email format", httpCode.BAD_REQUEST, "error");
+    }
+
+    // Kiểm tra mật khẩu có đủ mạnh hay không
+    const passwordRegex = /^(?=.*[a-zA-Z])(?=.*\d)(?=.*[A-Z]).{6,}$/;
     if (!passwordRegex.test(password)) {
         throw new AppError(
             "Password must be at least 6 characters long and contain at least one letter, one number, and one uppercase letter",
@@ -48,26 +55,28 @@ export const register = expressAsyncHandler(async (req: Request, res: Response) 
         throw new AppError("Passwords do not match", httpCode.BAD_REQUEST, "error");
     }
 
-    const token = await registerService(username, password);
-
+    // Gọi service đăng ký và tạo token
+    const token = await registerService(username, email, password);
     if (!token) {
-        throw new AppError("Failed to generate token ", httpCode.INTERNAL_SERVER_ERROR, "error");
+        throw new AppError("Failed to generate token", httpCode.INTERNAL_SERVER_ERROR, "error");
     }
 
+    // Set cookie chứa token
     res.cookie("token", token, {
         secure: true,
         httpOnly: true,
     });
+
     sendResponse(res, "success", "Register successfully", httpCode.OK);
 });
 
 export const login = expressAsyncHandler(async (req: Request, res: Response) => {
-    const { username, password } = req.body;
-    if (!username || !password) {
+    const { email, password } = req.body;
+    if (!email || !password) {
         throw new AppError("Missing required fields", httpCode.BAD_REQUEST, "error");
     }
 
-    const token = await loginService(username, password);
+    const token = await loginService(email, password);
     if (!token) {
         throw new AppError("Invalid username or password", httpCode.UNAUTHORIZED, "error");
     }
