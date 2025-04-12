@@ -10,6 +10,7 @@ import { registerService, loginService } from "../service/user.service";
 import jwt from "jsonwebtoken";
 import nodemailer from "nodemailer";
 import { EMAIL_USER, EMAIL_PASS,TOKEN_KEY } from '../utils/secret';
+import crypto from "crypto";
 
 export const getUser = expressAsyncHandler(async (req: Request, res: Response) => {
     const user = await userModel.create({
@@ -108,7 +109,6 @@ export const changePassword = expressAsyncHandler(async (req: Request, res: Resp
     );
   }
 
-  // Lấy user từ DB theo _id từ middleware auth
   console.log("User from auth middleware:", req.user);
   const user = await userModel.findById(req.user._id);
   
@@ -116,15 +116,12 @@ export const changePassword = expressAsyncHandler(async (req: Request, res: Resp
     throw new AppError("Người dùng không tồn tại", httpCode.NOT_FOUND, "error");
   }
 
-
-  // So sánh mật khẩu cũ
   const isMatch = await user.comparePassword(oldPassword);
   if (!isMatch) {
     throw new AppError("Mật khẩu cũ không chính xác", httpCode.UNAUTHORIZED, "error");
   }
 
-  // Cập nhật mật khẩu mới
-  user.password = newPassword; // sẽ được hash lại nhờ pre-save middleware
+  user.password = newPassword;
   await user.save();
 
   sendResponse(res, "success", "Đổi mật khẩu thành công", httpCode.OK);
@@ -135,11 +132,15 @@ export const forgotPassword = expressAsyncHandler(async (req: Request, res: Resp
 
     const user = await userModel.findOne({ email });
     if (!user) {
-        throw new AppError("Email không tồn tại", httpCode.NOT_FOUND, "error");
+      throw new AppError("Email không tồn tại", httpCode.NOT_FOUND, "error");
     }
 
-    const token = jwt.sign({ id: user._id }, TOKEN_KEY, { expiresIn: "15m" });
+    const token = crypto.randomBytes(32).toString("hex");
     const resetLink = `http://localhost:3000/account/password/${token}/reset`;
+
+    user.resetPasswordToken = token;
+    user.resetPasswordExpires = new Date(Date.now() + 15 * 60 * 1000); // 15 phút
+    await user.save();
 
     const transporter = nodemailer.createTransport({
         service: "Gmail",
@@ -267,33 +268,63 @@ export const forgotPassword = expressAsyncHandler(async (req: Request, res: Resp
     sendResponse(res, "success", "Link đặt lại mật khẩu đã được gửi qua email", httpCode.OK,{ token });
 });
 
- export const resetPassword = expressAsyncHandler(async (req: Request, res: Response) => {
-//   const { token } = req.params;
-//   const { newPassword, confirmPassword } = req.body;
+export const resetPassword = expressAsyncHandler(async (req: Request, res: Response) => {
+  const { token } = req.params;
+  const { newPassword, confirmPassword } = req.body;
 
-//   if (!token || !newPassword || !confirmPassword) {
-//     throw new AppError("Thiếu thông tin", httpCode.BAD_REQUEST, "error");
-//   }
+  if (!token || !newPassword || !confirmPassword) {
+    throw new AppError("Thiếu thông tin", httpCode.BAD_REQUEST, "error");
+  }
+  const passwordRegex = /^(?=.*[a-zA-Z])(?=.*\d).{6,}$/;
+  if (!passwordRegex.test(newPassword)) {
+    throw new AppError(
+      "Mật khẩu phải có ít nhất 6 ký tự, bao gồm chữ và số",
+      httpCode.BAD_REQUEST,
+      "error"
+    );
+  }
 
-//   if (newPassword !== confirmPassword) {
-//     throw new AppError("Mật khẩu xác nhận không khớp", httpCode.BAD_REQUEST, "error");
-//   }
+  if (newPassword !== confirmPassword) {
+    throw new AppError("Mật khẩu xác nhận không khớp", httpCode.BAD_REQUEST, "error");
+  }
 
-//   const user = await userModel.findOne({
-//     resetPasswordToken: token
-//   });
+  const user = await userModel.findOne({
+    resetPasswordToken: token,
+    resetPasswordExpires: { $gt: new Date() }, // Kiểm tra token chưa hết hạn
+  });
+  
+  if (!user) {
+    throw new AppError("Token không hợp lệ hoặc đã hết hạn", httpCode.UNAUTHORIZED, "error");
+  }
 
-//   if (!user) {
-//     throw new AppError("Token không hợp lệ hoặc đã hết hạn", httpCode.UNAUTHORIZED, "error");
-//   }
+  // Cập nhật mật khẩu mới
+  user.password = newPassword;
 
-//   // Cập nhật mật khẩu mới
-//   user.password = newPassword;
+  // Xoá token và hạn sử dụng
+  user.resetPasswordToken = undefined;
+  user.resetPasswordExpires = undefined;
 
-//   // Xoá token
-//   user.resetPasswordToken = undefined;
+  await user.save();
 
-//   await user.save();
-
-//   sendResponse(res, "success", "Đặt lại mật khẩu thành công", httpCode.OK);
- });
+  sendResponse(res, "success", "Đặt lại mật khẩu thành công", httpCode.OK);
+});
+//check url token
+export const validateResetToken = expressAsyncHandler(async (req: Request, res: Response) => {
+  const { token } = req.params;
+  
+  if (!token) {
+    throw new AppError("Token không được cung cấp", httpCode.BAD_REQUEST, "error");
+  }
+  
+  // Check if token exists in database and is not expired
+  const user = await userModel.findOne({
+    resetPasswordToken: token,
+    resetPasswordExpires: { $gt: new Date() }
+  });
+  
+  if (!user) {
+    throw new AppError("Token không hợp lệ hoặc đã hết hạn", httpCode.UNAUTHORIZED, "error");
+  }
+  
+  sendResponse(res, "success", "Token hợp lệ", httpCode.OK);
+});

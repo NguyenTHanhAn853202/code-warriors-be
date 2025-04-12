@@ -13,6 +13,8 @@ export interface IUser extends Document {
   elo: number;
   rank: Schema.Types.ObjectId;
   createdAt: Date;
+  resetPasswordToken?: string;
+  resetPasswordExpires?: Date;
   hashPassword(): Promise<void>;
   comparePassword(candidatePassword: string): Promise<boolean>;
   generateToken(): string;
@@ -21,12 +23,14 @@ export interface IUser extends Document {
 const userSchema = new Schema<IUser>(
   {
     username: { type: String, unique: true, required: true },
-    email: { type: String, unique: true, required: true},
+    email: { type: String, unique: true, required: true },
     password: { type: String, required: true },
     role: { type: String, enum: ["user", "admin"], default: "user" },
     xp: { type: Number, default: 0 },
     elo: { type: Number, default: 0 },
     rank: { type: Schema.Types.ObjectId, ref: "Rank" },
+    resetPasswordToken: { type: String, default: null },
+    resetPasswordExpires: { type: Date, default: null },
   },
   { timestamps: true }
 );
@@ -49,7 +53,8 @@ userSchema.methods.comparePassword = async function (
 // Tạo token xác thực
 userSchema.methods.generateToken = function (): string {
   return jwt.sign(
-    { _id: this._id, username: this.username, role: this.role },TOKEN_KEY,
+    { _id: this._id, username: this.username, role: this.role },
+    TOKEN_KEY,
     { expiresIn: "30d" }
   );
 };

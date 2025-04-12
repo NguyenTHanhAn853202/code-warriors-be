@@ -18,7 +18,7 @@ declare module 'express-serve-static-core' {
 
 export const auth = expressAsyncHandler(async(req:Request,res:Response,next:NextFunction)=>{
     const user = {
-        _id:"67ea6414a85677ccfd64c1b1",
+        _id:"67c515ad7893bdb73c6a1370",
         username:"",
         role:''
     }
