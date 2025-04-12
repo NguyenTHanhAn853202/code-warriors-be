@@ -7,6 +7,9 @@ import userModel from "../model/user.model";
 import problemModel from "../model/problem.model";
 import testcaseModel from "../model/testcase.model";
 import { registerService, loginService } from "../service/user.service";
+import jwt from "jsonwebtoken";
+import nodemailer from "nodemailer";
+import { EMAIL_USER, EMAIL_PASS,TOKEN_KEY } from '../utils/secret';
 
 export const getUser = expressAsyncHandler(async (req: Request, res: Response) => {
     const user = await userModel.create({
@@ -42,10 +45,10 @@ export const register = expressAsyncHandler(async (req: Request, res: Response) 
     }
 
     // Kiểm tra mật khẩu có đủ mạnh hay không
-    const passwordRegex = /^(?=.*[a-zA-Z])(?=.*\d)(?=.*[A-Z]).{6,}$/;
+    const passwordRegex = /^(?=.*[a-zA-Z])(?=.*\d).{6,}$/;
     if (!passwordRegex.test(password)) {
         throw new AppError(
-            "Password must be at least 6 characters long and contain at least one letter, one number, and one uppercase letter",
+            "Password must be at least 6 characters long and contain at least one letter and one number",
             httpCode.BAD_REQUEST,
             "error"
         );
@@ -83,3 +86,214 @@ export const login = expressAsyncHandler(async (req: Request, res: Response) => 
     res.cookie("token", token, { secure: true, httpOnly: true });
     sendResponse(res, "success", "Login successfully", httpCode.OK);
 });
+
+export const changePassword = expressAsyncHandler(async (req: Request, res: Response) => {
+  const { oldPassword, newPassword, confirmPassword } = req.body;
+
+  if (!oldPassword || !newPassword || !confirmPassword) {
+    throw new AppError("Vui lòng điền đầy đủ thông tin", httpCode.BAD_REQUEST, "error");
+  }
+
+  if (newPassword !== confirmPassword) {
+    throw new AppError("Mật khẩu mới không khớp", httpCode.BAD_REQUEST, "error");
+  }
+
+  // Kiểm tra định dạng mật khẩu mới (ít nhất 6 ký tự, chứa chữ và số)
+  const passwordRegex = /^(?=.*[a-zA-Z])(?=.*\d).{6,}$/;
+  if (!passwordRegex.test(newPassword)) {
+    throw new AppError(
+      "Mật khẩu phải có ít nhất 6 ký tự, bao gồm chữ và số",
+      httpCode.BAD_REQUEST,
+      "error"
+    );
+  }
+
+  // Lấy user từ DB theo _id từ middleware auth
+  console.log("User from auth middleware:", req.user);
+  const user = await userModel.findById(req.user._id);
+  
+  if (!user) {
+    throw new AppError("Người dùng không tồn tại", httpCode.NOT_FOUND, "error");
+  }
+
+
+  // So sánh mật khẩu cũ
+  const isMatch = await user.comparePassword(oldPassword);
+  if (!isMatch) {
+    throw new AppError("Mật khẩu cũ không chính xác", httpCode.UNAUTHORIZED, "error");
+  }
+
+  // Cập nhật mật khẩu mới
+  user.password = newPassword; // sẽ được hash lại nhờ pre-save middleware
+  await user.save();
+
+  sendResponse(res, "success", "Đổi mật khẩu thành công", httpCode.OK);
+});
+
+export const forgotPassword = expressAsyncHandler(async (req: Request, res: Response) => {
+    const { email } = req.body;
+
+    const user = await userModel.findOne({ email });
+    if (!user) {
+        throw new AppError("Email không tồn tại", httpCode.NOT_FOUND, "error");
+    }
+
+    const token = jwt.sign({ id: user._id }, TOKEN_KEY, { expiresIn: "15m" });
+    const resetLink = `http://localhost:3000/account/password/${token}/reset`;
+
+    const transporter = nodemailer.createTransport({
+        service: "Gmail",
+        auth: {
+            user: EMAIL_USER,
+            pass: EMAIL_PASS,
+        },
+    });
+
+    const mailOptions = {
+        from: {
+            name: "CodeWars",
+            address: EMAIL_USER
+        },
+        to: user.email,
+        subject: "Reset your password CodeWars",
+        html: `
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Reset Your Password</title>
+            <style>
+              body {
+                font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+                margin: 0;
+                padding: 0;
+                background-color: #f3f4f6;
+                color: #374151;
+                line-height: 1.5;
+              }
+              .container {
+                max-width: 600px;
+                margin: 0 auto;
+                padding: 20px;
+              }
+              .card {
+                background-color: #ffffff;
+                border-radius: 0.5rem;
+                box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+                overflow: hidden;
+              }
+              .header {
+                background-color: #4f46e5;
+                padding: 1.5rem;
+                text-align: center;
+              }
+              .header-text {
+                color: #ffffff;
+                font-size: 1.5rem;
+                font-weight: 600;
+                margin: 0;
+              }
+              .content {
+                padding: 1.5rem;
+              }
+              .text {
+                margin-bottom: 1rem;
+                color: #4b5563;
+              }
+              .btn {
+                display: inline-block;
+                background-color:rgb(139, 134, 239);
+                color: #ffffff;
+                text-decoration: none;
+                padding: 0.75rem 1.5rem;
+                border-radius: 0.375rem;
+                font-weight: 500;
+                text-align: center;
+                margin: 1rem 0;
+                transition-property: background-color;
+                transition-duration: 150ms;
+              }
+              .btn:hover {
+                background-color:rgb(87, 84, 118);
+              }
+              .link-container {
+                margin-top: 1rem;
+                padding: 0.75rem;
+                background-color: #f9fafb;
+                border-radius: 0.375rem;
+                border: 1px solid #e5e7eb;
+                word-break: break-all;
+              }
+              .footer {
+                margin-top: 1rem;
+                text-align: center;
+                font-size: 0.875rem;
+                color: #6b7280;
+              }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="card">
+                <div class="header">
+                  <h1 class="header-text">Reset Your Password</h1>
+                </div>
+                <div class="content">
+                  <p class="text">Hello,</p>
+                  <p class="text">We received a request to reset your password for your CodeWars account. Please click the button below to proceed.</p>
+                  
+                  <a href="${resetLink}" class="btn">Reset Password</a>
+                  
+                  <p class="text">If you cannot click the button, please copy and paste the link below into your browser:</p>
+                  
+                  <div class="link-container">
+                    ${resetLink}
+                  </div>
+                  
+                  <p class="text" style="margin-top: 1.5rem; font-size: 0.875rem;">This link will expire in 15 minutes. If you did not request a password reset, please ignore this email.</p>
+                </div>
+              </div>
+              <div class="footer">
+                <p>&copy; 2025 CodeWars. All rights reserved.</p>
+              </div>
+            </div>
+          </body>
+          </html>
+        `
+    };
+      await transporter.sendMail(mailOptions);
+
+    sendResponse(res, "success", "Link đặt lại mật khẩu đã được gửi qua email", httpCode.OK,{ token });
+});
+
+ export const resetPassword = expressAsyncHandler(async (req: Request, res: Response) => {
+//   const { token } = req.params;
+//   const { newPassword, confirmPassword } = req.body;
+
+//   if (!token || !newPassword || !confirmPassword) {
+//     throw new AppError("Thiếu thông tin", httpCode.BAD_REQUEST, "error");
+//   }
+
+//   if (newPassword !== confirmPassword) {
+//     throw new AppError("Mật khẩu xác nhận không khớp", httpCode.BAD_REQUEST, "error");
+//   }
+
+//   const user = await userModel.findOne({
+//     resetPasswordToken: token
+//   });
+
+//   if (!user) {
+//     throw new AppError("Token không hợp lệ hoặc đã hết hạn", httpCode.UNAUTHORIZED, "error");
+//   }
+
+//   // Cập nhật mật khẩu mới
+//   user.password = newPassword;
+
+//   // Xoá token
+//   user.resetPasswordToken = undefined;
+
+//   await user.save();
+
+//   sendResponse(res, "success", "Đặt lại mật khẩu thành công", httpCode.OK);
+ });
