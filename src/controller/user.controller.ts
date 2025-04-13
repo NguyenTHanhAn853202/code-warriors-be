@@ -3,7 +3,7 @@ import expressAsyncHandler from "express-async-handler";
 import sendResponse from "../utils/response";
 import { httpCode } from "../utils/httpCode";
 import { AppError } from "../utils/AppError";
-import userModel from "../model/user.model";
+import userModel, { IUser } from "../model/user.model";
 import problemModel from "../model/problem.model";
 import testcaseModel from "../model/testcase.model";
 import { registerService, loginService } from "../service/user.service";
@@ -328,3 +328,103 @@ export const validateResetToken = expressAsyncHandler(async (req: Request, res: 
   
   sendResponse(res, "success", "Token hợp lệ", httpCode.OK);
 });
+
+export const updateProfile = expressAsyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user._id;
+  
+  if (!userId) {
+    throw new AppError("Người dùng chưa đăng nhập", httpCode.UNAUTHORIZED, "error");
+  }
+
+  const {
+    gender,
+    location,
+    birthday,
+    summary,
+    website,
+    github,
+    work,
+    education,
+    technicalSkills
+  } = req.body;
+  if (birthday && !isValidDate(birthday)) {
+    throw new AppError("Định dạng ngày sinh không hợp lệ", httpCode.BAD_REQUEST, "error");
+  }
+
+  if (website && !isValidUrl(website)) {
+    throw new AppError("URL trang web không hợp lệ", httpCode.BAD_REQUEST, "error");
+  }
+  const updateData: Partial<IUser> = {};
+  
+  if (gender !== undefined) updateData.gender = gender;
+  if (location !== undefined) updateData.location = location;
+  if (birthday !== undefined) updateData.birthday = new Date(birthday);
+  if (summary !== undefined) updateData.summary = summary;
+  if (website !== undefined) updateData.website = website;
+  if (github !== undefined) updateData.github = github;
+  if (work !== undefined) updateData.work = work;
+  if (education !== undefined) updateData.education = education;
+  if (technicalSkills !== undefined) updateData.technicalSkills = technicalSkills;
+
+  const updatedUser = await userModel.findByIdAndUpdate(
+    userId,
+    { $set: updateData },
+    { new: true, runValidators: true }
+  ).select("-password");
+  
+  if (!updatedUser) {
+    throw new AppError("Không tìm thấy người dùng", httpCode.NOT_FOUND, "error");
+  }
+  
+  sendResponse(res, "success", "Cập nhật thông tin thành công", httpCode.OK, updatedUser);
+});
+
+const isValidDate = (dateString: string): boolean => {
+  if (!/^\d{2}\/\d{2}\/\d{4}$/.test(dateString)) {
+    return false;
+  }
+  const [day, month, year] = dateString.split('/').map(Number);
+  const date = new Date(year, month - 1, day);
+  return date.getFullYear() === year &&
+         date.getMonth() === month - 1 &&
+         date.getDate() === day;
+};
+
+const isValidUrl = (urlString: string): boolean => {
+  try {
+    const url = new URL(urlString);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+};
+
+export const getUserDetail = expressAsyncHandler(async (req: Request, res: Response) => {
+  const userId = req.params.id || req.user._id;
+  
+  if (!userId) {
+    throw new AppError("ID người dùng không được cung cấp", httpCode.BAD_REQUEST, "error");
+  }
+  
+  const user = await userModel.findById(userId)
+    .select("-password")
+    .populate("rank", "name icon");
+  
+  if (!user) {
+    throw new AppError("Không tìm thấy người dùng", httpCode.NOT_FOUND, "error");
+  }
+  
+  const userData = user.toObject();
+  if (userData.birthday) {
+    const date = new Date(userData.birthday);
+    if (date instanceof Date && !isNaN(date.getTime())) {
+      const day = String(date.getDate()).padStart(2, '0');
+      const month = String(date.getMonth() + 1).padStart(2, '0'); 
+      const year = date.getFullYear();
+      userData.birthday = `${day}/${month}/${year}`;
+    }
+  }
+  
+  sendResponse(res, "success", "Lấy thông tin người dùng thành công", httpCode.OK, userData);
+});
+

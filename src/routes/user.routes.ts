@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getUser, register, login, changePassword, forgotPassword,resetPassword,validateResetToken } from "../controller/user.controller";
+import { getUser, register, login, getUserDetail, changePassword, forgotPassword,resetPassword,validateResetToken,updateProfile } from "../controller/user.controller";
 import { auth } from "../middleware/auth";
 const router = Router();
 
@@ -10,4 +10,7 @@ router.post("/changePassword",auth,changePassword);
 router.post("/forgotPassword",forgotPassword);
 router.post("/resetPassword/:token",resetPassword);
 router.get("/validateResetToken/:token",validateResetToken);
+router.patch("/updateProfile",auth,updateProfile);
+router.get("/info",auth, getUserDetail);
+
 export default router;
