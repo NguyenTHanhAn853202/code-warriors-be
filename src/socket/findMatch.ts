@@ -21,6 +21,7 @@ let waitingUsers:TwaitingUsers[] = []
 function findMatch(socket:Socket,io:Server) {
    socket.on("find_match",async(data)=>{ 
       try{
+        console.log(waitingUsers);
         
         const userId = socket.user?._id
         const rank = (await userModel.findById(userId))?.elo || 0
@@ -29,9 +30,7 @@ function findMatch(socket:Socket,io:Server) {
              let indexCompetitor = -1
              for(let index=0;index<waitingUsers.length;index++){
                  const item = waitingUsers[index]
-                 const diff = Math.abs(rank-item.rank)  
-                 console.log(rankDifferent>diff && userId !== item.userId && userId);
-                               
+                 const diff = Math.abs(rank-item.rank)                
                  if(rankDifferent>diff && userId !== item.userId && userId){
                      indexCompetitor = index
                      break                
@@ -41,8 +40,6 @@ function findMatch(socket:Socket,io:Server) {
                 const rankId = await getRankId([rank,waitingUsers[indexCompetitor].rank].sort()[0])
                 const problems = await problemModel.find({difficulty:rankId})
                 const problem = problems[Math.floor(Math.random()*problems.length)]
-                console.log(problem);
-                
                 if(!problem){  
                     waitingUsers.push(
                         {
@@ -78,8 +75,6 @@ function findMatch(socket:Socket,io:Server) {
                      userId: userId 
                  }
              )
-             console.log(waitingUsers);
-
          }
       }
       catch(e){

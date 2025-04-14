@@ -5,16 +5,11 @@ import { httpCode } from "../utils/httpCode";
 import sendResponse from "../utils/response";
 import { Request, Response } from "express";
 import matchModel from "../model/match.model";
-import testcaseModel from "../model/testcase.model";
-import submissionModel from "../model/submission.model";
-import mongoose from "mongoose";
-import userModel from "../model/user.model";
-import { Server, Socket } from "socket.io";
 
 class MatchController{
     getProblem = expressAsyncHandler(async (req: Request, res: Response) => {
         const matchId = req.params.id;
-        const match = await matchModel.findById(matchId).select("problems status")
+        const match = await matchModel.findById(matchId).select("problems")
         const problemId = match?.problems
         if (!problemId) {
           throw new AppError("Problem id is empty", httpCode.FORBIDDEN, "warning");
@@ -28,12 +23,7 @@ class MatchController{
             httpCode.FORBIDDEN,
             "warning"
           );
-        
-        let data:any = {...problem}
-        data = data._doc
-        data.matchStatus = match.status
-
-        sendResponse(res, "success", "successfully", httpCode.OK, data);
+        sendResponse(res, "success", "successfully", httpCode.OK, problem);
       });
 
       getResult = expressAsyncHandler(async(req: Request, res: Response)=>{
@@ -43,15 +33,10 @@ class MatchController{
         
         sendResponse(res, "success", "successfully", httpCode.OK,match);
       })
-      
-    getProblemId = expressAsyncHandler(async(req:Request,res:Response)=>{
-      const {matchId} = req.body
-      const match = await matchModel.findById(matchId).select("problems")
-      sendResponse(res,"success","success",httpCode.OK,
-        match?.problems
-      )
-    })
 
+    matchSubmission = expressAsyncHandler(async(req:Request,res:Response)=>{
+      
+    })
 }
 
 export default new MatchController()

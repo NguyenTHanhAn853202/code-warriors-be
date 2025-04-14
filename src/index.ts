@@ -33,12 +33,6 @@ const io = new Server(server, {
   },
 });
 
-declare module "socket.io" {
-  interface Socket {
-    user?: any;
-  }
-}
-
 socketApp(io);
 
 app.locals.io = io;
@@ -62,7 +56,11 @@ type User = {
 };
 
 // Mở rộng interface của Socket
-
+declare module "socket.io" {
+  interface Socket {
+    user?: any;
+  }
+}
 
 let index = 0
 
