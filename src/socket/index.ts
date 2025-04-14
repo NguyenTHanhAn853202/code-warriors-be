@@ -3,6 +3,7 @@ import findMatch, { leaveWaiting } from "./findMatch";
 import statusMatch from "./statusMatch";
 import matching from "./matching";
 import roomBattle from "./roomSocket";   
+import chatInMatch from "./chatInMatch";
 
 function socketApp(io: Server) {
   io.on("connection", (socket) => {
@@ -12,6 +13,7 @@ function socketApp(io: Server) {
     leaveWaiting(socket, io);
     roomBattle(socket, io);
     matching(socket,io)
+    chatInMatch(socket, io)
 
   });
 }
