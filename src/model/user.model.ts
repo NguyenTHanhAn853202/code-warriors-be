@@ -12,7 +12,19 @@ export interface IUser extends Document {
   xp: number;
   elo: number;
   rank: Schema.Types.ObjectId;
+  avtImage: string;
+  gender: string;
+  location: string;
+  birthday: Date |string;
+  summary: string;
+  website: string;
+  github: string;
+  work: string;
+  education: string;
+  technicalSkills: string[];
   createdAt: Date;
+  resetPasswordToken?: string;
+  resetPasswordExpires?: Date;
   hashPassword(): Promise<void>;
   comparePassword(candidatePassword: string): Promise<boolean>;
   generateToken(): string;
@@ -21,12 +33,25 @@ export interface IUser extends Document {
 const userSchema = new Schema<IUser>(
   {
     username: { type: String, unique: true, required: true },
-    email: { type: String },
+    email: { type: String, unique: true, required: true },
     password: { type: String, required: true },
     role: { type: String, enum: ["user", "admin"], default: "user" },
     xp: { type: Number, default: 0 },
     elo: { type: Number, default: 0 },
     rank: { type: Schema.Types.ObjectId, ref: "Rank" },
+    // Avatar image URL from Firebase
+    avtImage: { type: String, default: "" },
+    gender: { type: String, default: "" },
+    location: { type: String, default: "" },
+    birthday: { type: Date },
+    summary: { type: String, default: "" },
+    website: { type: String, default: "" },
+    github: { type: String, default: "" },
+    work: { type: String, default: "" },
+    education: { type: String, default: "" },
+    technicalSkills: [{ type: String }],
+    resetPasswordToken: { type: String, default: null },
+    resetPasswordExpires: { type: Date, default: null },
   },
   { timestamps: true }
 );
@@ -49,7 +74,8 @@ userSchema.methods.comparePassword = async function (
 // Tạo token xác thực
 userSchema.methods.generateToken = function (): string {
   return jwt.sign(
-    { _id: this._id, username: this.username, role: this.role },TOKEN_KEY,
+    { id: this._id, username: this.username, role: this.role },
+    TOKEN_KEY,
     { expiresIn: "30d" }
   );
 };
