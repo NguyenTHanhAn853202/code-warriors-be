@@ -45,13 +45,6 @@ const userSchema = new Schema<IUser>(
     location: { type: String, default: "" },
     birthday: { type: Date },
     summary: { type: String, default: "" },
-    website: { type: String, default: "" },
-    github: { type: String, default: "" },
-    work: { type: String, default: "" },
-    education: { type: String, default: "" },
-    technicalSkills: [{ type: String }],
-    resetPasswordToken: { type: String, default: null },
-    resetPasswordExpires: { type: Date, default: null },
   },
   { timestamps: true }
 );
