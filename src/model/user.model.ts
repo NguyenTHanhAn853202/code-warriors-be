@@ -17,11 +17,6 @@ export interface IUser extends Document {
   location: string;
   birthday: Date |string;
   summary: string;
-  website: string;
-  github: string;
-  work: string;
-  education: string;
-  technicalSkills: string[];
   createdAt: Date;
   resetPasswordToken?: string;
   resetPasswordExpires?: Date;
@@ -45,6 +40,8 @@ const userSchema = new Schema<IUser>(
     location: { type: String, default: "" },
     birthday: { type: Date },
     summary: { type: String, default: "" },
+    resetPasswordToken: { type: String, default: null },
+    resetPasswordExpires: { type: Date, default: null },
   },
   { timestamps: true }
 );
@@ -67,7 +64,7 @@ userSchema.methods.comparePassword = async function (
 // Tạo token xác thực
 userSchema.methods.generateToken = function (): string {
   return jwt.sign(
-    { id: this._id, username: this.username, role: this.role },
+    { _id: this._id, username: this.username, role: this.role },
     TOKEN_KEY,
     { expiresIn: "30d" }
   );

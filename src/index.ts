@@ -17,6 +17,7 @@ import { ObjectId } from 'mongoose'
 import { AppError } from './utils/AppError'
 import { httpCode } from './utils/httpCode'
 import jwt from "jsonwebtoken";
+import cookieParser from 'cookie-parser';
 
 
 
@@ -49,7 +50,7 @@ app.use(express.static(path.join(__dirname, "public")));
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
-
+app.use(cookieParser());
 // routes
 router(app);
 

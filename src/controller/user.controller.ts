@@ -341,30 +341,17 @@ export const updateProfile = expressAsyncHandler(async (req: Request, res: Respo
     location,
     birthday,
     summary,
-    website,
-    github,
-    work,
-    education,
-    technicalSkills
   } = req.body;
   if (birthday && !isValidDate(birthday)) {
     throw new AppError("Định dạng ngày sinh không hợp lệ", httpCode.BAD_REQUEST, "error");
   }
 
-  if (website && !isValidUrl(website)) {
-    throw new AppError("URL trang web không hợp lệ", httpCode.BAD_REQUEST, "error");
-  }
   const updateData: Partial<IUser> = {};
   
   if (gender !== undefined) updateData.gender = gender;
   if (location !== undefined) updateData.location = location;
   if (birthday !== undefined) updateData.birthday = new Date(birthday);
   if (summary !== undefined) updateData.summary = summary;
-  if (website !== undefined) updateData.website = website;
-  if (github !== undefined) updateData.github = github;
-  if (work !== undefined) updateData.work = work;
-  if (education !== undefined) updateData.education = education;
-  if (technicalSkills !== undefined) updateData.technicalSkills = technicalSkills;
 
   const updatedUser = await userModel.findByIdAndUpdate(
     userId,
@@ -390,41 +377,28 @@ const isValidDate = (dateString: string): boolean => {
          date.getDate() === day;
 };
 
-const isValidUrl = (urlString: string): boolean => {
-  try {
-    const url = new URL(urlString);
-    return url.protocol === "http:" || url.protocol === "https:";
-  } catch {
-    return false;
-  }
-};
 
-export const getUserDetail = expressAsyncHandler(async (req: Request, res: Response) => {
-  const userId = req.params.id || req.user._id;
-  
-  if (!userId) {
-    throw new AppError("ID người dùng không được cung cấp", httpCode.BAD_REQUEST, "error");
-  }
-  
-  const user = await userModel.findById(userId)
-    .select("-password")
-    .populate("rank", "name icon");
-  
+export const getUserDetail = expressAsyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const userId = id || req.user?._id || req.user?._id;
+
+  console.log("🔍 Tìm user với ID:", userId);
+
+  const user = await userModel.findById(userId).select("-password");
+
   if (!user) {
     throw new AppError("Không tìm thấy người dùng", httpCode.NOT_FOUND, "error");
   }
-  
-  const userData = user.toObject();
-  if (userData.birthday) {
-    const date = new Date(userData.birthday);
-    if (date instanceof Date && !isNaN(date.getTime())) {
-      const day = String(date.getDate()).padStart(2, '0');
-      const month = String(date.getMonth() + 1).padStart(2, '0'); 
-      const year = date.getFullYear();
-      userData.birthday = `${day}/${month}/${year}`;
-    }
-  }
-  
-  sendResponse(res, "success", "Lấy thông tin người dùng thành công", httpCode.OK, userData);
+
+  sendResponse(res, "success", "Lấy thông tin người dùng thành công", httpCode.OK, user);
 });
 
+export const logout = expressAsyncHandler(async (req: Request, res: Response) => {
+  res.clearCookie("token", {
+      httpOnly: true,
+      secure: true,
+      sameSite: "strict",
+  });
+
+  sendResponse(res, "success", "Logout successfully", httpCode.OK);
+});
