@@ -9,7 +9,7 @@ import testcaseModel from "../model/testcase.model";
 import { registerService, loginService } from "../service/user.service";
 import jwt from "jsonwebtoken";
 import nodemailer from "nodemailer";
-import { EMAIL_USER, EMAIL_PASS,TOKEN_KEY } from '../utils/secret';
+import { EMAIL_USER, EMAIL_PASS, TOKEN_KEY } from "../utils/secret";
 import crypto from "crypto";
 
 export const getUser = expressAsyncHandler(async (req: Request, res: Response) => {
@@ -84,47 +84,43 @@ export const login = expressAsyncHandler(async (req: Request, res: Response) => 
     if (!token) {
         throw new AppError("Invalid username or password", httpCode.UNAUTHORIZED, "error");
     }
-    res.cookie("token", token, { secure: true, httpOnly: true });
+    res.cookie("token", token, { secure: false, httpOnly: true, sameSite: "lax" });
     sendResponse(res, "success", "Login successfully", httpCode.OK);
 });
 
 export const changePassword = expressAsyncHandler(async (req: Request, res: Response) => {
-  const { oldPassword, newPassword, confirmPassword } = req.body;
+    const { oldPassword, newPassword, confirmPassword } = req.body;
 
-  if (!oldPassword || !newPassword || !confirmPassword) {
-    throw new AppError("Vui lòng điền đầy đủ thông tin", httpCode.BAD_REQUEST, "error");
-  }
+    if (!oldPassword || !newPassword || !confirmPassword) {
+        throw new AppError("Vui lòng điền đầy đủ thông tin", httpCode.BAD_REQUEST, "error");
+    }
 
-  if (newPassword !== confirmPassword) {
-    throw new AppError("Mật khẩu mới không khớp", httpCode.BAD_REQUEST, "error");
-  }
+    if (newPassword !== confirmPassword) {
+        throw new AppError("Mật khẩu mới không khớp", httpCode.BAD_REQUEST, "error");
+    }
 
-  // Kiểm tra định dạng mật khẩu mới (ít nhất 6 ký tự, chứa chữ và số)
-  const passwordRegex = /^(?=.*[a-zA-Z])(?=.*\d).{6,}$/;
-  if (!passwordRegex.test(newPassword)) {
-    throw new AppError(
-      "Mật khẩu phải có ít nhất 6 ký tự, bao gồm chữ và số",
-      httpCode.BAD_REQUEST,
-      "error"
-    );
-  }
+    // Kiểm tra định dạng mật khẩu mới (ít nhất 6 ký tự, chứa chữ và số)
+    const passwordRegex = /^(?=.*[a-zA-Z])(?=.*\d).{6,}$/;
+    if (!passwordRegex.test(newPassword)) {
+        throw new AppError("Mật khẩu phải có ít nhất 6 ký tự, bao gồm chữ và số", httpCode.BAD_REQUEST, "error");
+    }
 
-  console.log("User from auth middleware:", req.user);
-  const user = await userModel.findById(req.user._id);
-  
-  if (!user) {
-    throw new AppError("Người dùng không tồn tại", httpCode.NOT_FOUND, "error");
-  }
+    console.log("User from auth middleware:", req.user);
+    const user = await userModel.findById(req.user._id);
 
-  const isMatch = await user.comparePassword(oldPassword);
-  if (!isMatch) {
-    throw new AppError("Mật khẩu cũ không chính xác", httpCode.UNAUTHORIZED, "error");
-  }
+    if (!user) {
+        throw new AppError("Người dùng không tồn tại", httpCode.NOT_FOUND, "error");
+    }
 
-  user.password = newPassword;
-  await user.save();
+    const isMatch = await user.comparePassword(oldPassword);
+    if (!isMatch) {
+        throw new AppError("Mật khẩu cũ không chính xác", httpCode.UNAUTHORIZED, "error");
+    }
 
-  sendResponse(res, "success", "Đổi mật khẩu thành công", httpCode.OK);
+    user.password = newPassword;
+    await user.save();
+
+    sendResponse(res, "success", "Đổi mật khẩu thành công", httpCode.OK);
 });
 
 export const forgotPassword = expressAsyncHandler(async (req: Request, res: Response) => {
@@ -132,7 +128,7 @@ export const forgotPassword = expressAsyncHandler(async (req: Request, res: Resp
 
     const user = await userModel.findOne({ email });
     if (!user) {
-      throw new AppError("Email không tồn tại", httpCode.NOT_FOUND, "error");
+        throw new AppError("Email không tồn tại", httpCode.NOT_FOUND, "error");
     }
 
     const token = crypto.randomBytes(32).toString("hex");
@@ -153,7 +149,7 @@ export const forgotPassword = expressAsyncHandler(async (req: Request, res: Resp
     const mailOptions = {
         from: {
             name: "CodeWars",
-            address: EMAIL_USER
+            address: EMAIL_USER,
         },
         to: user.email,
         subject: "Reset your password CodeWars",
@@ -261,144 +257,130 @@ export const forgotPassword = expressAsyncHandler(async (req: Request, res: Resp
             </div>
           </body>
           </html>
-        `
+        `,
     };
-      await transporter.sendMail(mailOptions);
+    await transporter.sendMail(mailOptions);
 
-    sendResponse(res, "success", "Link đặt lại mật khẩu đã được gửi qua email", httpCode.OK,{ token });
+    sendResponse(res, "success", "Link đặt lại mật khẩu đã được gửi qua email", httpCode.OK, { token });
 });
 
 export const resetPassword = expressAsyncHandler(async (req: Request, res: Response) => {
-  const { token } = req.params;
-  const { newPassword, confirmPassword } = req.body;
+    const { token } = req.params;
+    const { newPassword, confirmPassword } = req.body;
 
-  if (!token || !newPassword || !confirmPassword) {
-    throw new AppError("Thiếu thông tin", httpCode.BAD_REQUEST, "error");
-  }
-  const passwordRegex = /^(?=.*[a-zA-Z])(?=.*\d).{6,}$/;
-  if (!passwordRegex.test(newPassword)) {
-    throw new AppError(
-      "Mật khẩu phải có ít nhất 6 ký tự, bao gồm chữ và số",
-      httpCode.BAD_REQUEST,
-      "error"
-    );
-  }
+    if (!token || !newPassword || !confirmPassword) {
+        throw new AppError("Thiếu thông tin", httpCode.BAD_REQUEST, "error");
+    }
+    const passwordRegex = /^(?=.*[a-zA-Z])(?=.*\d).{6,}$/;
+    if (!passwordRegex.test(newPassword)) {
+        throw new AppError("Mật khẩu phải có ít nhất 6 ký tự, bao gồm chữ và số", httpCode.BAD_REQUEST, "error");
+    }
 
-  if (newPassword !== confirmPassword) {
-    throw new AppError("Mật khẩu xác nhận không khớp", httpCode.BAD_REQUEST, "error");
-  }
+    if (newPassword !== confirmPassword) {
+        throw new AppError("Mật khẩu xác nhận không khớp", httpCode.BAD_REQUEST, "error");
+    }
 
-  const user = await userModel.findOne({
-    resetPasswordToken: token,
-    resetPasswordExpires: { $gt: new Date() }, // Kiểm tra token chưa hết hạn
-  });
-  
-  if (!user) {
-    throw new AppError("Token không hợp lệ hoặc đã hết hạn", httpCode.UNAUTHORIZED, "error");
-  }
+    const user = await userModel.findOne({
+        resetPasswordToken: token,
+        resetPasswordExpires: { $gt: new Date() }, // Kiểm tra token chưa hết hạn
+    });
 
-  // Cập nhật mật khẩu mới
-  user.password = newPassword;
+    if (!user) {
+        throw new AppError("Token không hợp lệ hoặc đã hết hạn", httpCode.UNAUTHORIZED, "error");
+    }
 
-  // Xoá token và hạn sử dụng
-  user.resetPasswordToken = undefined;
-  user.resetPasswordExpires = undefined;
+    // Cập nhật mật khẩu mới
+    user.password = newPassword;
 
-  await user.save();
+    // Xoá token và hạn sử dụng
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpires = undefined;
 
-  sendResponse(res, "success", "Đặt lại mật khẩu thành công", httpCode.OK);
+    await user.save();
+
+    sendResponse(res, "success", "Đặt lại mật khẩu thành công", httpCode.OK);
 });
 //check url token
 export const validateResetToken = expressAsyncHandler(async (req: Request, res: Response) => {
-  const { token } = req.params;
-  
-  if (!token) {
-    throw new AppError("Token không được cung cấp", httpCode.BAD_REQUEST, "error");
-  }
-  
-  // Check if token exists in database and is not expired
-  const user = await userModel.findOne({
-    resetPasswordToken: token,
-    resetPasswordExpires: { $gt: new Date() }
-  });
-  
-  if (!user) {
-    throw new AppError("Token không hợp lệ hoặc đã hết hạn", httpCode.UNAUTHORIZED, "error");
-  }
-  
-  sendResponse(res, "success", "Token hợp lệ", httpCode.OK);
+    const { token } = req.params;
+
+    if (!token) {
+        throw new AppError("Token không được cung cấp", httpCode.BAD_REQUEST, "error");
+    }
+
+    // Check if token exists in database and is not expired
+    const user = await userModel.findOne({
+        resetPasswordToken: token,
+        resetPasswordExpires: { $gt: new Date() },
+    });
+
+    if (!user) {
+        throw new AppError("Token không hợp lệ hoặc đã hết hạn", httpCode.UNAUTHORIZED, "error");
+    }
+
+    sendResponse(res, "success", "Token hợp lệ", httpCode.OK);
 });
 
 export const updateProfile = expressAsyncHandler(async (req: Request, res: Response) => {
-  const userId = req.user._id;
-  
-  if (!userId) {
-    throw new AppError("Người dùng chưa đăng nhập", httpCode.UNAUTHORIZED, "error");
-  }
+    const userId = req.user._id;
 
-  const {
-    gender,
-    location,
-    birthday,
-    summary,
-  } = req.body;
-  if (birthday && !isValidDate(birthday)) {
-    throw new AppError("Định dạng ngày sinh không hợp lệ", httpCode.BAD_REQUEST, "error");
-  }
+    if (!userId) {
+        throw new AppError("Người dùng chưa đăng nhập", httpCode.UNAUTHORIZED, "error");
+    }
 
-  const updateData: Partial<IUser> = {};
-  
-  if (gender !== undefined) updateData.gender = gender;
-  if (location !== undefined) updateData.location = location;
-  if (birthday !== undefined) updateData.birthday = new Date(birthday);
-  if (summary !== undefined) updateData.summary = summary;
+    const { gender, location, birthday, summary } = req.body;
+    if (birthday && !isValidDate(birthday)) {
+        throw new AppError("Định dạng ngày sinh không hợp lệ", httpCode.BAD_REQUEST, "error");
+    }
 
-  const updatedUser = await userModel.findByIdAndUpdate(
-    userId,
-    { $set: updateData },
-    { new: true, runValidators: true }
-  ).select("-password");
-  
-  if (!updatedUser) {
-    throw new AppError("Không tìm thấy người dùng", httpCode.NOT_FOUND, "error");
-  }
-  
-  sendResponse(res, "success", "Cập nhật thông tin thành công", httpCode.OK, updatedUser);
+    const updateData: Partial<IUser> = {};
+
+    if (gender !== undefined) updateData.gender = gender;
+    if (location !== undefined) updateData.location = location;
+    if (birthday !== undefined) updateData.birthday = new Date(birthday);
+    if (summary !== undefined) updateData.summary = summary;
+
+    const updatedUser = await userModel
+        .findByIdAndUpdate(userId, { $set: updateData }, { new: true, runValidators: true })
+        .select("-password");
+
+    if (!updatedUser) {
+        throw new AppError("Không tìm thấy người dùng", httpCode.NOT_FOUND, "error");
+    }
+
+    sendResponse(res, "success", "Cập nhật thông tin thành công", httpCode.OK, updatedUser);
 });
 
 const isValidDate = (dateString: string): boolean => {
-  if (!/^\d{2}\/\d{2}\/\d{4}$/.test(dateString)) {
-    return false;
-  }
-  const [day, month, year] = dateString.split('/').map(Number);
-  const date = new Date(year, month - 1, day);
-  return date.getFullYear() === year &&
-         date.getMonth() === month - 1 &&
-         date.getDate() === day;
+    if (!/^\d{2}\/\d{2}\/\d{4}$/.test(dateString)) {
+        return false;
+    }
+    const [day, month, year] = dateString.split("/").map(Number);
+    const date = new Date(year, month - 1, day);
+    return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
 };
 
-
 export const getUserDetail = expressAsyncHandler(async (req, res) => {
-  const { id } = req.params;
-  const userId = id || req.user?._id || req.user?._id;
+    const { id } = req.params;
+    const userId = id || req.user?._id || req.user?._id;
 
-  console.log("🔍 Tìm user với ID:", userId);
+    console.log("🔍 Tìm user với ID:", userId);
 
-  const user = await userModel.findById(userId).select("-password");
+    const user = await userModel.findById(userId).select("-password");
 
-  if (!user) {
-    throw new AppError("Không tìm thấy người dùng", httpCode.NOT_FOUND, "error");
-  }
+    if (!user) {
+        throw new AppError("Không tìm thấy người dùng", httpCode.NOT_FOUND, "error");
+    }
 
-  sendResponse(res, "success", "Lấy thông tin người dùng thành công", httpCode.OK, user);
+    sendResponse(res, "success", "Lấy thông tin người dùng thành công", httpCode.OK, user);
 });
 
 export const logout = expressAsyncHandler(async (req: Request, res: Response) => {
-  res.clearCookie("token", {
-      httpOnly: true,
-      secure: true,
-      sameSite: "strict",
-  });
+    res.clearCookie("token", {
+        httpOnly: true,
+        secure: true,
+        sameSite: "strict",
+    });
 
-  sendResponse(res, "success", "Logout successfully", httpCode.OK);
+    sendResponse(res, "success", "Logout successfully", httpCode.OK);
 });
