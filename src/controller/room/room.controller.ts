@@ -5,478 +5,158 @@ import { v4 as uuidv4 } from "uuid";
 import { AppError } from "../../utils/AppError";
 import { httpCode } from "../../utils/httpCode";
 import { comparePassword, hashPassword } from "../../utils/hashPassword";
+import { EVENT_RESPONSE } from "@/socket/constants";
+import { status } from "../../utils/response";
 
 class RoomBattleController {
-  getAllRooms = expressAsyncHandler(
+  getRooms = expressAsyncHandler(
     async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-      const { status } = req.query;
-
-      const filter = status ? { status } : {};
-      const rooms = await RoomBattleModel.find(filter).sort({ createdAt: -1 });
-
-      res.json({ status: "success", data: rooms });
-    }
-  );
-
-  getRoomDetails = expressAsyncHandler(
-    async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-      const { roomId } = req.params;
-
-      const room = await RoomBattleModel.findOne({ roomId });
-
-      if (!room) {
-        throw new AppError("Phòng không tồn tại!", httpCode.NOT_FOUND, "error");
-      }
+      const rooms = await RoomBattleModel.find({ status: "waiting" });
 
       res.json({
         status: "success",
-        data: room,
+        data: rooms,
       });
     }
   );
 
-  checkRoom = expressAsyncHandler(
-    async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-      const { roomId } = req.params;
-      const room = await RoomBattleModel.findOne({ roomId });
-
-      if (!room) {
-        throw new AppError("Phòng không tồn tại!", httpCode.NOT_FOUND, "error");
-      }
-
-      res.json({
-        status: "success",
-        exists: true,
-        data: { roomId },
-      });
-    }
-  );
-
-  // Tạo phòng mới với mật khẩu
   // Tạo phòng mới
   createRoom = expressAsyncHandler(
     async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-      const {
-        username,
-        maxPlayers = 4,
-        isPrivate = false,
-        password,
-      } = req.body;
+      const { maxPlayers, isPrivate, password } = req.body;
+      // const username = req.user.username;
+      const username = req.body.username;
 
-      if (!username) {
-        throw new AppError(
-          "Username là bắt buộc!",
-          httpCode.BAD_REQUEST,
-          "error"
-        );
-      }
+      const hashedPassword = password
+        ? await hashPassword(password)
+        : undefined;
 
-      // Kiểm tra mật khẩu nếu phòng riêng tư
-      if (isPrivate && !password) {
-        throw new AppError(
-          "Mật khẩu là bắt buộc cho phòng riêng tư!",
-          httpCode.BAD_REQUEST,
-          "error"
-        );
-      }
-
-      const roomId = uuidv4();
-
-      // Tạo object room với các trường cơ bản
-      const roomData: any = {
-        roomId,
+      const newRoom = await RoomBattleModel.create({
+        roomId: uuidv4(),
         players: [username],
-        status: "waiting",
-        maxPlayers,
+        maxPlayers: maxPlayers || 4,
         createdBy: username,
         isPrivate,
-      };
-
-      // Thêm và hash mật khẩu nếu là phòng riêng tư
-      if (isPrivate) {
-        roomData.password = await hashPassword(password);
-      }
-
-      const room = await RoomBattleModel.create(roomData);
-
-      // Không trả về mật khẩu trong response
-      const roomResponse = room.toObject();
-      delete roomResponse.password;
-
-      res.status(201).json({
-        status: "success",
-        data: roomResponse,
+        password: hashedPassword,
+        status: "waiting",
       });
+      console.log("infor room", newRoom);
 
-      // Thông báo cho tất cả client có phòng mới
-      if (req.app.locals.io) {
-        req.app.locals.io.emit("room-list-updated", {
-          action: "created",
-          room: roomResponse,
-        });
-      }
+      res.status(httpCode.OK).json({
+        status: "success",
+        data: newRoom,
+      });
     }
   );
 
   joinRoom = expressAsyncHandler(
     async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-      const { roomId, username, password } = req.body;
-
-      if (!roomId || !username) {
+      const { roomId, password } = req.body;
+      // const username = req.user.username;
+      const username = req.body.username;
+      if (!username) {
         throw new AppError(
-          "roomId và username là bắt buộc!",
-          httpCode.BAD_REQUEST,
+          "Username is required",
+          httpCode.UNAUTHORIZED,
           "error"
         );
       }
-
-      // Tìm phòng với mật khẩu nếu có
-      const room = await RoomBattleModel.findOne({ roomId }).select(
-        "+password"
-      );
+      const room = await RoomBattleModel.findOne({ roomId });
 
       if (!room) {
-        throw new AppError("Phòng không tồn tại!", httpCode.NOT_FOUND, "error");
+        throw new AppError("Room not found", httpCode.NOT_FOUND, "error");
       }
 
       if (room.status !== "waiting") {
         throw new AppError(
-          "Phòng không thể tham gia vì không phải trạng thái chờ",
+          "Room is not available",
           httpCode.BAD_REQUEST,
           "error"
         );
       }
 
-      // Kiểm tra mật khẩu nếu phòng riêng tư
-      if (room.isPrivate) {
-        if (!password) {
-          throw new AppError(
-            "Phòng này yêu cầu mật khẩu để tham gia!",
-            httpCode.UNAUTHORIZED,
-            "error"
-          );
-        }
+      if (room.players.length >= room.maxPlayers) {
+        throw new AppError("Room is full", httpCode.BAD_REQUEST, "error");
+      }
 
+      if (room.players.includes(username)) {
+        throw new AppError("Already in room", httpCode.BAD_REQUEST, "error");
+      }
+
+      if (room.isPrivate && password !== room.password) {
+        throw new AppError("Invalid password", httpCode.UNAUTHORIZED, "error");
+      }
+      if (room.isPrivate) {
         const isMatch = await comparePassword(password, room.password);
         if (!isMatch) {
           throw new AppError(
-            "Mật khẩu không đúng!",
+            "Invalid password",
             httpCode.UNAUTHORIZED,
             "error"
           );
         }
       }
 
-      if (room.players.length >= room.maxPlayers) {
-        throw new AppError("Phòng đã đầy", httpCode.BAD_REQUEST, "error");
-      }
-
-      // Kiểm tra nếu người chơi đã trong phòng
-      if (room.players.includes(username)) {
-        // Loại bỏ password trước khi trả về
-        const roomResponse = room.toObject();
-        delete roomResponse.password;
-
-        res.status(200).json({
-          status: "success",
-          message: "Bạn đã ở trong phòng này rồi!",
-          data: roomResponse,
-        });
-      }
-
-      // Thêm người chơi vào phòng
       room.players.push(username);
       await room.save();
 
-      // Loại bỏ password trước khi trả về và gửi qua socket
-      const roomResponse = room.toObject();
-      delete roomResponse.password;
-
-      // Thông báo cho tất cả người trong phòng
-      if (req.app.locals.io) {
-        req.app.locals.io
-          .to(roomId)
-          .emit("player-joined", { username, room: roomResponse });
-        req.app.locals.io.to(roomId).emit("room-updated", roomResponse);
-
-        // Thông báo cho tất cả client về việc phòng được cập nhật
-        req.app.locals.io.emit("room-list-updated", {
-          action: "updated",
-          room: roomResponse,
-        });
-      }
-
-      res.status(200).json({
+      res.json({
         status: "success",
-        message: "Tham gia phòng thành công",
-        data: roomResponse,
+        data: room,
       });
     }
   );
 
   leaveRoom = expressAsyncHandler(
     async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-      const { roomId, username } = req.body;
-  
-      if (!roomId || !username) {
-        throw new AppError(
-          "roomId và username là bắt buộc!",
-          httpCode.BAD_REQUEST,
-          "error"
-        );
-      }
-  
+      const { roomId } = req.body;
+      // const username = req.user.username;
+      const username = req.body.username;
+
       const room = await RoomBattleModel.findOne({ roomId });
-  
+
       if (!room) {
-        throw new AppError("Phòng không tồn tại!", httpCode.NOT_FOUND, "error");
+        throw new AppError("Room not found", httpCode.NOT_FOUND, "error");
       }
-  
-      // Kiểm tra người chơi có trong phòng không
+
       if (!room.players.includes(username)) {
-        throw new AppError(
-          "Bạn không ở trong phòng này!",
-          httpCode.BAD_REQUEST,
-          "error"
-        );
+        throw new AppError("Not in room", httpCode.BAD_REQUEST, "error");
       }
-  
-      // Xóa người chơi khỏi phòng
-      room.players = room.players.filter((player) => player !== username);
-  
-      // Nếu không còn ai trong phòng, xóa phòng
-      if (room.players.length === 0) {
+      if (room.createdBy === username) {
         await RoomBattleModel.deleteOne({ roomId });
-  
-        if (req.app.locals.io) { 
-          req.app.locals.io.emit("room-list-updated", {
-            action: "deleted",
-            roomId,
-          });
-        }
-  
-         res.json({  // Thêm return ở đây
+        res.json({
           status: "success",
-          message: "Đã rời phòng và phòng đã bị xóa do không còn người chơi",
+          message: "Room deleted as creator left",
         });
       }
-  
-      // Nếu còn người trong phòng, lưu phòng
-      await room.save();
-  
-      // Loại bỏ mật khẩu trước khi gửi
-      const roomResponse = room.toObject();
-      delete roomResponse.password;
-  
-      if (req.app.locals.io) {
-        req.app.locals.io
-          .to(roomId)
-          .emit("player-left", { username, room: roomResponse });
-        req.app.locals.io.to(roomId).emit("room-updated", roomResponse);
-        req.app.locals.io.emit("room-list-updated", {
-          action: "updated",
-          room: roomResponse,
-        });
-      }
-  
-      res.json({
-        status: "success",
-        message: "Đã rời phòng thành công",
-      });
-    }
-  );
-  
-
-  startBattle = expressAsyncHandler(
-    async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-      const { roomId, username } = req.body;
-
-      if (!roomId || !username) {
+      if (room.status !== "waiting") {
         throw new AppError(
-          "roomId và username là bắt buộc!",
+          "Cannot leave after game started",
           httpCode.BAD_REQUEST,
           "error"
         );
       }
 
-      const room = await RoomBattleModel.findOne({ roomId });
-
-      if (!room) {
-        throw new AppError("Phòng không tồn tại!", httpCode.NOT_FOUND, "error");
-      }
-
-      // Kiểm tra xem người yêu cầu có phải là chủ phòng không
-      // Nếu có trường createdBy thì sử dụng, nếu không thì dùng người chơi đầu tiên
-      const roomOwner = room.createdBy || room.players[0];
-      if (roomOwner !== username) {
-        throw new AppError(
-          "Chỉ chủ phòng mới có thể bắt đầu trận đấu!",
-          httpCode.FORBIDDEN,
-          "error"
-        );
-      }
-
-      if (room.players.length < 2) {
-        throw new AppError(
-          "Cần ít nhất 2 người chơi để bắt đầu trận đấu!",
-          httpCode.BAD_REQUEST,
-          "error"
-        );
-      }
-
-      room.status = "ongoing";
-      room.startedAt = new Date();
+      room.players = room.players.filter((player) => player !== username);
       await room.save();
-
-      if (req.app.locals.io) {
-        req.app.locals.io.to(roomId).emit("game-started", room);
-        req.app.locals.io.emit("room-list-updated", {
-          action: "updated",
-          room,
-        });
-      }
 
       res.json({
         status: "success",
-        message: "Trận đấu đã bắt đầu!",
         data: room,
       });
     }
   );
 
-  // Nộp code
-  submitCode = expressAsyncHandler(
+  getRoomById = expressAsyncHandler(
     async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-      const { roomId, username, code } = req.body;
-
-      if (!roomId || !username || !code) {
-        throw new AppError(
-          "roomId, username và code là bắt buộc!",
-          httpCode.BAD_REQUEST,
-          "error"
-        );
-      }
-
+      const { roomId } = req.params;
       const room = await RoomBattleModel.findOne({ roomId });
-
       if (!room) {
-        throw new AppError("Phòng không tồn tại!", httpCode.NOT_FOUND, "error");
+        throw new AppError("Room not found", httpCode.NOT_FOUND, "error");
       }
-
-      if (room.status !== "ongoing") {
-        throw new AppError(
-          "Trận đấu chưa bắt đầu hoặc đã kết thúc!",
-          httpCode.BAD_REQUEST,
-          "error"
-        );
-      }
-
-      if (!room.players.includes(username)) {
-        throw new AppError(
-          "Bạn không ở trong phòng này!",
-          httpCode.BAD_REQUEST,
-          "error"
-        );
-      }
-
-      // Khởi tạo mảng submissions nếu chưa có
-      if (!room.submissions) {
-        room.submissions = [];
-      }
-
-      // Thêm bài nộp mới
-      const submission = {
-        username,
-        code,
-        submittedAt: new Date(),
-      };
-
-      room.submissions.push(submission);
-      await room.save();
-
-      if (req.app.locals.io) {
-        req.app.locals.io.to(roomId).emit("code-submitted", {
-          username,
-          submittedAt: submission.submittedAt,
-        });
-      }
-
-      res.json({
+      res.status(httpCode.OK).json({
         status: "success",
-        message: "Code đã được nộp thành công!",
-      });
-    }
-  );
-
-  // Kết thúc trận đấu
-  endBattle = expressAsyncHandler(
-    async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-      const { roomId, username, winner } = req.body;
-
-      if (!roomId || !username) {
-        throw new AppError(
-          "roomId và username là bắt buộc!",
-          httpCode.BAD_REQUEST,
-          "error"
-        );
-      }
-
-      const room = await RoomBattleModel.findOne({ roomId });
-
-      if (!room) {
-        throw new AppError("Phòng không tồn tại!", httpCode.NOT_FOUND, "error");
-      }
-
-      // Kiểm tra xem người yêu cầu có phải là chủ phòng không
-      const roomOwner = room.createdBy || room.players[0];
-      if (roomOwner !== username) {
-        throw new AppError(
-          "Chỉ chủ phòng mới có thể kết thúc trận đấu!",
-          httpCode.FORBIDDEN,
-          "error"
-        );
-      }
-
-      if (room.status !== "ongoing") {
-        throw new AppError(
-          "Trận đấu chưa bắt đầu hoặc đã kết thúc!",
-          httpCode.BAD_REQUEST,
-          "error"
-        );
-      }
-
-      // Cập nhật trạng thái phòng - đảm bảo phù hợp với model
-      // Lưu ý: Trong model bạn dùng "finished", nhưng ở đây dùng "ended"
-      // Nên thống nhất lại
-      room.status = "finished"; // Cập nhật thành "finished" để phù hợp với model
-
-      // Thêm trường endedAt nếu model của bạn có hỗ trợ
-      if ("endedAt" in room) {
-        room.endedAt = new Date();
-      }
-
-      if (winner) {
-        room.winner = winner;
-      }
-
-      await room.save();
-
-      if (req.app.locals.io) {
-        req.app.locals.io.to(roomId).emit("game-ended", {
-          room,
-          winner,
-        });
-
-        req.app.locals.io.emit("room-list-updated", {
-          action: "updated",
-          room,
-        });
-      }
-
-      res.json({
-        status: "success",
-        message: "Trận đấu đã kết thúc!",
-        data: { room, winner },
+        data: room,
       });
     }
   );
