@@ -66,10 +66,10 @@ export const register = expressAsyncHandler(async (req: Request, res: Response) 
     }
 
     // Set cookie chứa token
-    res.cookie("token", token, {
-        secure: true,
-        httpOnly: true,
-    });
+    // res.cookie("token", token, {
+    //     secure: true,
+    //     httpOnly: true,
+    // });
 
     sendResponse(res, "success", "Register successfully", httpCode.OK);
 });
