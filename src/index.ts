@@ -17,13 +17,14 @@ import { ObjectId } from 'mongoose'
 import { AppError } from './utils/AppError'
 import { httpCode } from './utils/httpCode'
 import jwt from "jsonwebtoken";
+import cookieParser from 'cookie-parser';
 
 
 
 const app = express();
 app.use(cors({ 
   origin: "http://localhost:3000", 
-  credentials: true 
+  credentials: true ,
 }));
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -49,9 +50,10 @@ app.use(express.static(path.join(__dirname, "public")));
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
+app.use(cookieParser())
+
 
 // routes
-router(app);
 
 type User = {
   _id: string;
@@ -90,6 +92,8 @@ io.use((socket,next)=>{
 
 // connectDB
 connectDB();
+router(app);
+
 
 app.use(errorHandler);
 

@@ -67,7 +67,7 @@ userSchema.methods.comparePassword = async function (
 // Tạo token xác thực
 userSchema.methods.generateToken = function (): string {
   return jwt.sign(
-    { id: this._id, username: this.username, role: this.role },
+    { _id: this._id, username: this.username, role: this.role },
     TOKEN_KEY,
     { expiresIn: "30d" }
   );

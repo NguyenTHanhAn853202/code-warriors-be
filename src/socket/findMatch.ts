@@ -41,7 +41,7 @@ function findMatch(socket:Socket,io:Server) {
                 const rankId = await getRankId([rank,waitingUsers[indexCompetitor].rank].sort()[0])
                 const problems = await problemModel.find({difficulty:rankId})
                 const problem = problems[Math.floor(Math.random()*problems.length)]
-                console.log(problem);
+                console.log(problem + " problem" );
                 
                 if(!problem){  
                     waitingUsers.push(
