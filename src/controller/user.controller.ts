@@ -384,3 +384,12 @@ export const logout = expressAsyncHandler(async (req: Request, res: Response) =>
 
     sendResponse(res, "success", "Logout successfully", httpCode.OK);
 });
+export const getTopUsers = expressAsyncHandler(async (req: Request, res: Response) => {
+    const topUsers = await userModel
+        .find({}, { username: 1, email: 1, elo: 1, avtImage: 1, _id: 0 })
+        .sort({ elo: -1 }) 
+        .limit(10);
+
+    sendResponse(res, "success", "Top 10 người dùng có ELO cao nhất", httpCode.OK, { topUsers });
+});
+

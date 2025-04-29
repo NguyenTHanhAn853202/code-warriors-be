@@ -34,7 +34,6 @@ const userSchema = new Schema<IUser>(
     xp: { type: Number, default: 0 },
     elo: { type: Number, default: 0 },
     rank: { type: Schema.Types.ObjectId, ref: "Rank" },
-    // Avatar image URL from Firebase
     avtImage: { type: String, default: "" },
     gender: { type: String, default: "" },
     location: { type: String, default: "" },
