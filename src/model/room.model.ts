@@ -27,7 +27,7 @@ const roomBattleSchema = new Schema<IRoomBattle>({
   password: { type: String, select: false },
   winner: { type: String, default: null },
   startedAt: { type: Date },
-  endedAt: { type: Date },
+  endedAt: { type: Date }
 });
 
 export default mongoose.model<IRoomBattle>("RoomBattle", roomBattleSchema);

@@ -42,7 +42,7 @@ class ContestController {
         const savedTestCases = await Promise.all(
             testCases.map(async (test: { input: string; expectedOutput: string }) => {
                 const newTestCase = await testcaseModel.create({
-                    problem: author,
+                    problem: newContest._id,
                     input: test.input,
                     expectedOutput: test.expectedOutput,
                 });

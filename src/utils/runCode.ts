@@ -20,6 +20,9 @@ async function runCode(languageId:number,sourceCode:string,testcases:Itestcase[]
         time:0,
         memory:0
     } 
+
+    console.log(testcases);
+    
         
         for(let i=0; i<testcases.length; i++){
             const judge0 = await fetch(`${URL_JUDGE0}/submissions?base64_encoded=false&wait=true`,{
@@ -35,6 +38,9 @@ async function runCode(languageId:number,sourceCode:string,testcases:Itestcase[]
                 })
             })
             const result  = await judge0.json()
+
+            console.log(result);
+            
             
             if(result.status?.id !== Judge0Status.Accepted){
                 
