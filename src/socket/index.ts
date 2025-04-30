@@ -2,7 +2,7 @@ import { Server } from "socket.io";
 import findMatch, { leaveWaiting } from "./findMatch";
 import statusMatch from "./statusMatch";
 import matching from "./matching";
-import roomBattle from "./roomSocket";   
+import handleRoomBattle from "./room-battle/room-battle.handler";
 import chatInMatch from "./chatInMatch";
 
 function socketApp(io: Server) {
@@ -11,10 +11,9 @@ function socketApp(io: Server) {
     findMatch(socket, io);
     statusMatch(socket, io);
     leaveWaiting(socket, io);
-    roomBattle(socket, io);
-    matching(socket,io)
-    chatInMatch(socket, io)
-
+    handleRoomBattle(socket, io);
+    matching(socket, io);
+    chatInMatch(socket, io);
   });
 }
 

@@ -31,6 +31,6 @@ export const loginService = async (email: string, password: string) => {
     if (!isMatch) {
         throw new AppError("Incorrect password", httpCode.BAD_REQUEST, "error");
     }
-
-    return user.generateToken();
+    const token = user.generateToken();
+    return token;
 };

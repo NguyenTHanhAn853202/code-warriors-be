@@ -6,6 +6,27 @@
     "rootDir": "./src",
     "strict": true,
     "esModuleInterop": true,
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": [
+        "./src/*"
+      ],
+      "@routes/*": [
+        "./src/routes/*"
+      ],
+      "@controller/*": [
+        "./src/controller/*"
+      ],
+      "@model/*": [
+        "./src/model/*"
+      ],
+      "@middleware/*": [
+        "./src/middleware/*"
+      ],
+      "@socket/*": [
+        "./src/socket/*"
+      ]
+    },
   }
 }

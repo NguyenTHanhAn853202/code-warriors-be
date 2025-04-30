@@ -62,19 +62,42 @@ class ContestController {
             .sort({ createdAt: 1 })
             .select("title description difficulty startDate endDate source_code")
             .populate("difficulty", "name")
+            .populate({
+                path: "author",
+                select: "username role",
+                match: { role: "user" }
+            })
             .populate("testCases", "input expectedOutput");
-
-        sendResponse(res, "success", "Contests retrieved successfully", httpCode.OK, { contests });
+        const userContests = contests.filter(contest => contest.author !== null);
+    
+        sendResponse(res, "success", "Contests retrieved successfully", httpCode.OK, { contests: userContests });
+    });
+    viewAllMyContests = expressAsyncHandler(async (req: Request, res: Response) => {
+        const userId = req.user._id;
+        const contests = await contestModel
+            .find({ author: userId })
+            .sort({ createdAt: 1 })
+            .select("title description difficulty startDate endDate source_code")
+            .populate("difficulty", "name")
+            .populate("testCases", "input expectedOutput");
+    
+        sendResponse(res, "success", "Contests của bạn đã được truy xuất thành công", httpCode.OK, { contests });
     });
 
     GetLatestContests = expressAsyncHandler(async (req: Request, res: Response) => {
-        const latestContests = await contestModel
+        const allContests = await contestModel
             .find({})
             .sort({ createdAt: -1 })
-            .limit(3)
             .populate("difficulty", "name")
-            .populate("author", "username");
+            .populate({
+                path: "author",
+                select: "username role",
+                match: { role: "user" }
+            });
+        const userContests = allContests.filter(contest => contest.author !== null);
 
+        const latestContests = userContests.slice(0, 3);
+    
         sendResponse(res, "success", "Latest contests retrieved successfully", httpCode.OK, {
             contests: latestContests,
         });
