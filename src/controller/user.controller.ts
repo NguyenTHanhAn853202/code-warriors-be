@@ -11,6 +11,7 @@ import jwt from "jsonwebtoken";
 import nodemailer from "nodemailer";
 import { EMAIL_USER, EMAIL_PASS, TOKEN_KEY } from "../utils/secret";
 import crypto from "crypto";
+import rankModel from "../model/rank.model";
 
 export const getUser = expressAsyncHandler(async (req: Request, res: Response) => {
     const user = await userModel.create({
@@ -393,3 +394,8 @@ export const getTopUsers = expressAsyncHandler(async (req: Request, res: Respons
     sendResponse(res, "success", "Top 10 người dùng có ELO cao nhất", httpCode.OK, { topUsers });
 });
 
+export const getRank = expressAsyncHandler(async(req:Request,res:Response)=>{
+    const user = await userModel.findById(req.user._id)
+    const rank = await rankModel.findOne({maxElo:{$gte:user?.elo},minElo:{$lte:user?.elo}})
+    sendResponse(res, "success", "get info user", httpCode.OK, rank);
+})

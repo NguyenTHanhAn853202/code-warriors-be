@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getUser, register, login, getTopUsers,getUserDetail, logout,changePassword, forgotPassword,resetPassword,validateResetToken,updateProfile } from "../controller/user.controller";
+import { getUser, register, login, getTopUsers,getUserDetail, logout,changePassword, forgotPassword,resetPassword,validateResetToken,updateProfile, getRank } from "../controller/user.controller";
 import { auth } from "../middleware/auth";
 const router = Router();
 
@@ -14,5 +14,7 @@ router.patch("/updateProfile",auth,updateProfile);
 router.get("/info",auth, getUserDetail);
 router.post("/logout", logout);
 router.get("/topUser",getTopUsers);
+router.get("/rank",auth,getRank);
+
 
 export default router;

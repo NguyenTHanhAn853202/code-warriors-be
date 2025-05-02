@@ -6,6 +6,7 @@ import problemRoutes from "./problems.routes";
 import contestRoutes from "./contests.routes";
 import matchRoutes from "./match.routes";
 import room from "./room.routes";
+import discussion from "./discussion.routes";
 
 import algorithmTypes from "./algorithmTypes.routes";
 import rankRouter from "./rank.routes";
@@ -18,6 +19,7 @@ function router(app: Application) {
   app.use("/api/v1/match", matchRoutes);
   app.use("/api/v1/rooms", room);
   app.use("/api/v1/rank", rankRouter);
+  app.use("/api/v1/discussion",discussion );
   app.use("/api/v1/algorithmTypes", algorithmTypes);
 }
 

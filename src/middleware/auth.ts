@@ -1,6 +1,6 @@
 import expressAsyncHandler from "express-async-handler";
 import { NextFunction, Request, Response } from "express";
-import { ObjectId } from "mongoose";
+import { ObjectId, Schema } from "mongoose";
 import jwt from 'jsonwebtoken'
 import { TOKEN_KEY } from "../utils/secret";
 import { AppError } from "../utils/AppError";

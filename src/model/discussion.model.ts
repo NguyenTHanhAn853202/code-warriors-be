@@ -1,11 +1,11 @@
-import mongoose, { Schema, Document } from "mongoose";
+import mongoose, { Schema, Document, Types } from "mongoose";
 import MongooseDelete from "mongoose-delete";
 
 interface IDiscussion extends Document {
   author: Schema.Types.ObjectId; // Người dùng
   title: string ; // Bài toán
   content: string; // Thời gian thực thi
-  favourite:Schema.Types.ObjectId[]
+  favourite:Types.ObjectId[]
 }
 
 const DiscussionSchema = new Schema<IDiscussion>(
