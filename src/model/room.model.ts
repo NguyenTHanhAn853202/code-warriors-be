@@ -6,6 +6,7 @@ export interface IRoomBattle extends Document {
   maxPlayers: number;
   createdBy: string; // Username người tạo phòng
   status: "waiting" | "ongoing" | "finished";
+  problems: mongoose.Types.ObjectId;
   isPrivate: boolean;
   password?: string;
   winner?: string | null; // Username người chiến thắng
@@ -24,10 +25,12 @@ const roomBattleSchema = new Schema<IRoomBattle>({
     default: "waiting",
   },
   isPrivate: { type: Boolean, default: false },
+  problems: { type: Schema.Types.ObjectId, ref: "Problem" },
+
   password: { type: String, select: false },
   winner: { type: String, default: null },
   startedAt: { type: Date },
-  endedAt: { type: Date }
+  endedAt: { type: Date },
 });
 
 export default mongoose.model<IRoomBattle>("RoomBattle", roomBattleSchema);

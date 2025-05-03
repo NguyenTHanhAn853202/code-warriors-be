@@ -1,6 +1,7 @@
 // src/socket/room-battle/room-battle.handler.ts
 import { Server, Socket } from "socket.io";
-import RoomBattle from "../../model/room.model";
+import RoomBattle from "../model/room.model";
+import problemModel from "@/model/problem.model";
 
 function handleRoomBattle(client: Socket, server: Server) {
   // Tham gia phòng
@@ -108,9 +109,9 @@ function handleRoomBattle(client: Socket, server: Server) {
     }
   });
 
-  // Ngắt kết nối
-  client.on("disconnect", () => {
-    console.log("Người dùng ngắt kết nối");
+  // hàm này dùng để realtime khi start battle thì sẽ nhảy qua trang làm bài , hàm này để hiện ra bài làm
+  client.on("get_problem", async ({ roomId }) => { 
+    console.log("get_problem");
   });
 }
 

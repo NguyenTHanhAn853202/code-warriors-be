@@ -17,23 +17,22 @@ import { ObjectId } from "mongoose";
 import { AppError } from "./utils/AppError";
 import { httpCode } from "./utils/httpCode";
 import jwt from "jsonwebtoken";
-import cookieParser from 'cookie-parser';
-
-
+import cookieParser from "cookie-parser";
 
 const app = express();
-app.use(cors({ 
-  origin: "http://localhost:3000", 
-  credentials: true ,
-}));
+app.use(
+  cors({
+    origin: "http://localhost:3000",
+    credentials: true,
+  })
+);
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
     origin: "http://localhost:3000",
     credentials: true,
-  }
-})
-
+  },
+});
 
 declare module "socket.io" {
   interface Socket {
@@ -86,14 +85,12 @@ io.use((socket, next) => {
 connectDB();
 router(app);
 
-
 app.use(errorHandler);
 
 app.use((req: Request, res: Response, next: NextFunction) => {
   logger.info(`HTTP ${req.method} ${req.url}`);
   next();
 });
-
 server.listen(PORT, () => {
   console.log("listening on port: ", PORT);
   logger.info("listening on port: " + PORT);

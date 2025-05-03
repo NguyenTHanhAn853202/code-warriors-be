@@ -8,7 +8,7 @@ export interface IUser extends Document {
   username: string;
   email: string;
   password: string;
-  role: "user" | "admin";
+  role: "user" | "admin"; 
   xp: number;
   elo: number;
   rank: Schema.Types.ObjectId;

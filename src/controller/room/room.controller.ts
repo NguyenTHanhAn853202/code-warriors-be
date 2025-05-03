@@ -5,7 +5,6 @@ import { v4 as uuidv4 } from "uuid";
 import { AppError } from "../../utils/AppError";
 import { httpCode } from "../../utils/httpCode";
 import { comparePassword, hashPassword } from "../../utils/hashPassword";
-import { EVENT_RESPONSE } from "@/socket/constants";
 import { status } from "../../utils/response";
 
 class RoomBattleController {
@@ -14,7 +13,7 @@ class RoomBattleController {
       const rooms = await RoomBattleModel.find({ status: "waiting" });
 
       res.json({
-        status: "success",
+        status: "success",  
         data: rooms,
       });
     }
