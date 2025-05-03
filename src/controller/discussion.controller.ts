@@ -179,7 +179,7 @@ class DiscussionController{
 
         sendResponse(res, "success", "Comment created successfully", httpCode.OK, comment);
     });
-
+        
     getCommentByDiscussion = expressAsyncHandler(async (req: Request, res: Response) => {
         const { discussionId } = req.params;
     
@@ -187,11 +187,27 @@ class DiscussionController{
             throw new AppError("Discussion ID is required", httpCode.BAD_REQUEST, "error");
         }
     
-        const comments = await Comment.find({ discussionId })
-            .populate("author", "-password") // populate user (ẩn mật khẩu)
-            .sort({ createdAt: 1 }); // sắp xếp theo thứ tự cũ -> mới
+        const discussion = await Discussion.findById(discussionId);
+        if (!discussion) {
+            throw new AppError("Discussion not found", httpCode.NOT_FOUND, "error");
+        }
     
-        sendResponse(res, "success", "Fetched comments successfully", httpCode.OK, comments);
+        const comments = await Comment.find({ discussionId })
+            .populate("author", "-password")
+            .sort({ createdAt: 1 });
+    
+        const responseData = {
+            discussion: {
+                title: discussion.title,
+                content: discussion.content,
+                like:discussion.favourite,
+                likeCount: discussion.favourite?.length || 0,
+                commentCount: comments.length,
+            },
+            comments
+        };
+    
+        sendResponse(res, "success", "Fetched discussion details and comments successfully", httpCode.OK, responseData);
     });
     
     editComment = expressAsyncHandler(async (req: Request, res: Response) => {
