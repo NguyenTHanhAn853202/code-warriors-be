@@ -324,35 +324,46 @@ export const validateResetToken = expressAsyncHandler(async (req: Request, res: 
 
 export const updateProfile = expressAsyncHandler(async (req: Request, res: Response) => {
     const userId = req.user._id;
-
+    
     if (!userId) {
         throw new AppError("Người dùng chưa đăng nhập", httpCode.UNAUTHORIZED, "error");
     }
-
+    
     const { gender, location, birthday, summary } = req.body;
-    if (birthday && !isValidDate(birthday)) {
+    
+    // Check if birthday is provided and valid
+    // Now expecting ISO date string from frontend
+    if (birthday && !isValidISODate(birthday)) {
         throw new AppError("Định dạng ngày sinh không hợp lệ", httpCode.BAD_REQUEST, "error");
     }
-
-    const updateData: Partial<IUser> = {};
-
+    
+    const updateData: Partial<any> = {};
+    
     if (gender !== undefined) updateData.gender = gender;
     if (location !== undefined) updateData.location = location;
-    if (birthday !== undefined) updateData.birthday = new Date(birthday);
+    if (birthday !== undefined) updateData.birthday = new Date(birthday); // ISO string can be directly parsed
     if (summary !== undefined) updateData.summary = summary;
-
+    
     const updatedUser = await userModel
         .findByIdAndUpdate(userId, { $set: updateData }, { new: true, runValidators: true })
         .select("-password");
-
+    
     if (!updatedUser) {
         throw new AppError("Không tìm thấy người dùng", httpCode.NOT_FOUND, "error");
     }
-
+    
     sendResponse(res, "success", "Cập nhật thông tin thành công", httpCode.OK, updatedUser);
 });
 
-const isValidDate = (dateString: string): boolean => {
+// Function to validate ISO date strings
+const isValidISODate = (dateString: string): boolean => {
+    // Check if the string is a valid ISO date
+    const date = new Date(dateString);
+    return !isNaN(date.getTime());
+};
+
+// Keep this function if you still need it for other parts of your code
+const isValidFormattedDate = (dateString: string): boolean => {
     if (!/^\d{2}\/\d{2}\/\d{4}$/.test(dateString)) {
         return false;
     }

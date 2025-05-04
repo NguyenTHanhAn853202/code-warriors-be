@@ -57,8 +57,20 @@ class ContestController {
     });
 
     viewAllContests = expressAsyncHandler(async (req: Request, res: Response) => {
+        const { title, difficulty} = req.query;
+    
+        const query: any = {};
+    
+        if (title) {
+            query.title = { $regex: title, $options: "i" };
+        }
+    
+        if (difficulty) {
+            query.difficulty = difficulty;
+        }
+    
         const contests = await contestModel
-            .find({})
+            .find(query)
             .sort({ createdAt: 1 })
             .select("title description difficulty startDate endDate source_code")
             .populate("difficulty", "name")
@@ -68,10 +80,12 @@ class ContestController {
                 match: { role: "user" }
             })
             .populate("testCases", "input expectedOutput");
+    
         const userContests = contests.filter(contest => contest.author !== null);
     
         sendResponse(res, "success", "Contests retrieved successfully", httpCode.OK, { contests: userContests });
     });
+    
     viewAllMyContests = expressAsyncHandler(async (req: Request, res: Response) => {
         const userId = req.user._id;
         const contests = await contestModel
