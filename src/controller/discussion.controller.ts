@@ -187,7 +187,9 @@ class DiscussionController{
             throw new AppError("Discussion ID is required", httpCode.BAD_REQUEST, "error");
         }
     
-        const discussion = await Discussion.findById(discussionId);
+        const discussion = await Discussion.findById(discussionId)
+            .populate("author", "-password");
+    
         if (!discussion) {
             throw new AppError("Discussion not found", httpCode.NOT_FOUND, "error");
         }
@@ -196,19 +198,19 @@ class DiscussionController{
             .populate("author", "-password")
             .sort({ createdAt: 1 });
     
+        const discussionObj = discussion.toObject();
+    
         const responseData = {
             discussion: {
-                title: discussion.title,
-                content: discussion.content,
-                like:discussion.favourite,
+                ...discussionObj,
                 likeCount: discussion.favourite?.length || 0,
                 commentCount: comments.length,
             },
-            comments
+            comments,
         };
     
         sendResponse(res, "success", "Fetched discussion details and comments successfully", httpCode.OK, responseData);
-    });
+    });    
     
     editComment = expressAsyncHandler(async (req: Request, res: Response) => {
         const { id } = req.params;
