@@ -40,6 +40,8 @@ declare module "socket.io" {
   }
 }
 
+
+
 socketApp(io);
 
 app.use(morgan("dev"));
@@ -62,6 +64,19 @@ type User = {
 // Mở rộng interface của Socket
 
 let index = 0;
+
+declare global {
+  namespace Express {
+    interface Request {
+      io?: Server;
+    }
+  }
+}
+
+app.use((req:Request,res:Response,next:NextFunction)=>{
+  req.io = io
+  next()
+})
 
 io.use((socket, next) => {
   let cookies: string[] = socket.request.headers.cookie?.split(";") as string[];

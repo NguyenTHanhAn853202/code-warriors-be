@@ -8,6 +8,10 @@ export interface IRoomBattle extends Document {
   status: "waiting" | "ongoing" | "finished";
   problems: mongoose.Types.ObjectId;
   isPrivate: boolean;
+  submissions: {
+    username: string;
+    submission: mongoose.Types.ObjectId;
+  }[];
   password?: string;
   winner?: string | null; 
   startedAt?: Date;
@@ -26,6 +30,10 @@ const roomBattleSchema = new Schema<IRoomBattle>({
   },
   isPrivate: { type: Boolean, default: false },
   problems: { type: Schema.Types.ObjectId, ref: "Problem" },
+  submissions:[{
+    username:{type:String},
+    submission:{type:Schema.Types.ObjectId,ref:"submission"}
+  }],
 
   password: { type: String, select: false },
   winner: { type: String, default: null },

@@ -5,7 +5,13 @@ import { v4 as uuidv4 } from "uuid";
 import { AppError } from "../../utils/AppError";
 import { httpCode } from "../../utils/httpCode";
 import { comparePassword, hashPassword } from "../../utils/hashPassword";
-import { status } from "../../utils/response";
+import sendResponse, { status } from "../../utils/response";
+import testcaseModel from "../../model/testcase.model";
+import problemModel from "../../model/problem.model";
+import runCode from "../../utils/runCode";
+import submissionModel, { ISubmission } from "../../model/submission.model";
+import roomModel from "../../model/room.model";
+import mongoose, { ObjectId } from "mongoose";
 
 class RoomBattleController {
   getRooms = expressAsyncHandler(
@@ -159,6 +165,93 @@ class RoomBattleController {
       });
     }
   );
+
+
+  submit = expressAsyncHandler(async(req:Request,res:Response)=>{
+    const {languageId, sourceCode, problemId,roomId,roomMatch} = req.body
+    const testcases = await testcaseModel.find({problem:problemId}).select("expectedOutput input problem")
+    const problem = await problemModel.findById(problemId)
+
+    if(!problem){
+        throw new AppError("Not found problem",httpCode.BAD_REQUEST,"warning")
+    }
+
+    
+    const userId = req.user._id
+    
+    // const leaderboard = await Leaderboard.findOneAndUpdate({user:userId, problem:problemId},{$inc:{attempts:1},score:evaluate.point, time:evaluate.time, memory:evaluate.memory, oldSource:sourceCode,languageId:languageId},{new:true,upsert:true})
+
+    let evaluation
+    let submission: ISubmission
+
+    try {
+      evaluation = await runCode(
+        languageId,
+        sourceCode,
+        testcases,
+        problem?.timeout || 3 * 60
+      );
+      submission = await submissionModel.create({
+        user: userId,
+        problem: problemId,
+        code: sourceCode,
+        language: languageId,
+        grade: evaluation.point,
+        memoryUsage: evaluation.memory,
+        executionTime: evaluation.time,
+      });
+    } catch (error: any) {
+      console.log(error.message, error);
+      submission = await submissionModel.create({
+        user: userId,
+        problem: problemId,
+        code: sourceCode,
+        language: languageId,
+        grade: 0,
+        memoryUsage: 0,
+        executionTime: 0,
+        status: "Wrong Answer",
+      })
+    }
+    if(!submission)
+      throw new AppError("error",httpCode.BAD_REQUEST,'error')
+    const room = await roomModel.findById(roomId)
+    if(!room)
+      throw new AppError("error",httpCode.BAD_REQUEST,'error')
+    room?.submissions.push({
+      username:req.user.username,
+      submission:submission._id as mongoose.Types.ObjectId
+    })
+
+    if(room?.submissions.length === room?.players.length){
+      const arr = []
+      for(let i =0;i<(room?.submissions.length );i++){
+        let item = room?.submissions[i]
+        const s = await submissionModel.findById(item.submission)
+        if(!s)
+          throw new AppError("error",httpCode.BAD_REQUEST,'error')
+        arr.push({
+          username:item.username,
+          grade:s?.grade,
+          time:s?.executionTime,
+          memory:s?.memoryUsage
+        })
+      }
+      arr.sort((a, b) => {
+        if (b.grade !== a.grade) return b.grade - a.grade; // grade giảm dần
+        if (a.time !== b.time) return a.time - b.time;     // time tăng dần
+        return a.memory - b.memory;                        // memory tăng dần
+      });
+      room.winner = arr[0].username
+      req.io?.to(roomMatch).emit("finish_room",{
+        room:room
+      })
+    }
+    await room.save()
+    sendResponse(res,"success","success",httpCode.OK,room)
+
+
+  })
 }
 
 export default new RoomBattleController();
