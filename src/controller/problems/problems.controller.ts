@@ -110,7 +110,7 @@ class Problems {
       testCases: [],
       timeout,
       startDate: startDate ? new Date(startDate) : new Date(),
-      endDate: endDate ? new Date(endDate) : undefined,
+      endDate: null,
       source_code,
     });
 
@@ -142,7 +142,9 @@ class Problems {
       try {
         const { page = 1, limit = 10, difficulty, title } = req.query;
 
-        const filter: any = {};
+        const filter: any = {
+          endDate: null,
+        };
         if (difficulty) filter.difficulty = difficulty;
         if (title) filter.title = { $regex: title as string, $options: "i" };
 
@@ -153,7 +155,6 @@ class Problems {
           .find(filter)
           .select("title description difficulty author createdAt")
           .populate("difficulty", "name")
-          // .populate("difficulty")
           .populate("algorithmTypes", "name")
           .populate("author", "username")
           .skip((pageNumber - 1) * limitNumber)
@@ -173,6 +174,39 @@ class Problems {
         });
       } catch (error) {
         console.error("Error retrieving problems:", error);
+        res.status(500).json({
+          message: "Internal server error",
+          error: error instanceof Error ? error.message : "Unknown error",
+        });
+      }
+    }
+  );
+
+  ViewOneProblems = expressAsyncHandler(
+    async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+      try {
+        const { id } = req.params;
+
+        const problem = await problemModel
+          .findById(id)
+          .select(
+            "title description difficulty author createdAt timeout startDate endDate"
+          )
+          .populate("difficulty", "name")
+          .populate("algorithmTypes", "name")
+          .populate("author", "username");
+
+        if (!problem) {
+          res.status(404).json({ message: "Problem not found" });
+          return;
+        }
+
+        res.status(200).json({
+          message: "Problem retrieved successfully",
+          problem,
+        });
+      } catch (error) {
+        console.error("Error retrieving problem:", error);
         res.status(500).json({
           message: "Internal server error",
           error: error instanceof Error ? error.message : "Unknown error",
@@ -290,6 +324,10 @@ class Problems {
         "warning"
       );
     sendResponse(res, "success", "successfully", httpCode.OK, problem);
+  });
+
+  RandomProblems = expressAsyncHandler(async (req, res) => {
+    console.log("abc");
   });
 }
 
