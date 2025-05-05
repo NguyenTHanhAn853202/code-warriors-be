@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { getUser, register, login, getTopUsers,getUserDetail, logout,changePassword, forgotPassword,resetPassword,validateResetToken,updateProfile, getRank } from "../controller/user.controller";
 import { auth } from "../middleware/auth";
+import { chatbot } from "../controller/AI.controller";
 const router = Router();
 
 router.get("/", getUser);
@@ -15,6 +16,8 @@ router.get("/info",auth, getUserDetail);
 router.post("/logout", logout);
 router.get("/topUser",getTopUsers);
 router.get("/rank",auth,getRank);
+
+router.post("/chatbot",chatbot)
 
 
 export default router;
