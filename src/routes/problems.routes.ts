@@ -5,9 +5,11 @@ const router = Router();
 
 router.post("/createProblems", problemsController.CreateProblems);
 router.get("/viewAllProblems", problemsController.ViewAllProblems);
-router.patch("/updateProblems/:id", problemsController.UpdateProblem)
-router.delete("/deleteProblems/:id", problemsController.DeleteProblem)
+router.get("/viewOneProblems/:id", problemsController.ViewOneProblems);
+router.patch("/updateProblems/:id", problemsController.UpdateProblem);
+router.delete("/deleteProblems/:id", problemsController.DeleteProblem);
+router.get("/randomProblems", problemsController.RandomProblems);
 
-router.get("/:id",problemsController.get)
+router.get("/:id", problemsController.get);
 
 export default router;

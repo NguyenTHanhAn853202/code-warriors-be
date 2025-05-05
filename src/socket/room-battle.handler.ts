@@ -1,7 +1,7 @@
 // src/socket/room-battle/room-battle.handler.ts
 import { Server, Socket } from "socket.io";
 import RoomBattle from "../model/room.model";
-import problemModel from "@/model/problem.model";
+import problemModel, { IProblem } from "../model/problem.model";
 
 function handleRoomBattle(client: Socket, server: Server) {
   // Tham gia phòng
@@ -66,20 +66,50 @@ function handleRoomBattle(client: Socket, server: Server) {
   client.on("start_battle", async ({ roomId, username }) => {
     try {
       const room = await RoomBattle.findOne({ roomId });
-      if (!room)
+      if (!room) {
         return client.emit("error", { message: "Phòng không tồn tại" });
-
-      if (room.createdBy !== username)
-        return client.emit("error", { message: "Không có quyền bắt đầu" });
-      if (room.players.length < 2)
+      }
+      if (room.createdBy !== username) {
+        return client.emit("error", {
+          message: "Không có quyền bắt đầu trận đấu",
+        });
+      }
+      if (room.players.length < 2) {
         return client.emit("error", { message: "Cần ít nhất 2 người chơi" });
+      }
 
+      const count = await problemModel.countDocuments();
+      if (count === 0) {
+        return client.emit("error", { message: "Không có bài toán nào" });
+      }
+
+      const random = Math.floor(Math.random() * count);
+
+      const randomProblem = await problemModel
+        .findOne()
+        .skip(random)
+        .select("_id title description difficulty timeout startDate endDate");
+
+      if (!randomProblem) {
+        return client.emit("error", { message: "Không thể lấy bài toán" });
+      }
+
+      // Lưu problemId vào phòng
+      room.problems = randomProblem.id;
       room.status = "ongoing";
       room.startedAt = new Date();
       await room.save();
 
-      server.to(roomId).emit("battle_started", room);
+      console.log(`Đã chọn bài toán ${randomProblem._id} cho phòng ${roomId}`);
+      console.log("Room after saving:", room);
+
+      server.to(roomId).emit("battle_started", {
+        room,
+        problemId: randomProblem._id, // Truyền problemId thay vì toàn bộ bài toán
+        battleUrl: `/battle?matchId=${roomId}`,
+      });
     } catch (err) {
+      console.error("Lỗi khi bắt đầu trận đấu:", err);
       client.emit("error", { message: "Lỗi khi bắt đầu trận đấu" });
     }
   });
@@ -107,11 +137,6 @@ function handleRoomBattle(client: Socket, server: Server) {
     } catch (err) {
       client.emit("error", { message: "Lỗi khi kết thúc trận đấu" });
     }
-  });
-
-  // hàm này dùng để realtime khi start battle thì sẽ nhảy qua trang làm bài , hàm này để hiện ra bài làm
-  client.on("get_problem", async ({ roomId }) => { 
-    console.log("get_problem");
   });
 }
 

@@ -2,16 +2,16 @@ import mongoose, { Document, Schema } from "mongoose";
 
 export interface IRoomBattle extends Document {
   roomId: string;
-  players: string[]; // Danh sách username người chơi
+  players: string[]; 
   maxPlayers: number;
-  createdBy: string; // Username người tạo phòng
+  createdBy: string; 
   status: "waiting" | "ongoing" | "finished";
   problems: mongoose.Types.ObjectId;
   isPrivate: boolean;
   password?: string;
-  winner?: string | null; // Username người chiến thắng
+  winner?: string | null; 
   startedAt?: Date;
-  endedAt?: Date; // Thêm trường mới để lưu thời gian kết thúc
+  endedAt?: Date; 
 }
 
 const roomBattleSchema = new Schema<IRoomBattle>({

@@ -19,7 +19,7 @@ function router(app: Application) {
   app.use("/api/v1/match", matchRoutes);
   app.use("/api/v1/rooms", room);
   app.use("/api/v1/rank", rankRouter);
-  app.use("/api/v1/discussion",discussion );
+  app.use("/api/v1/discussion", discussion);
   app.use("/api/v1/algorithmTypes", algorithmTypes);
 }
 
