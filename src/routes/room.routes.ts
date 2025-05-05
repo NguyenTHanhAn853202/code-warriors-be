@@ -2,7 +2,7 @@ import express from "express";
 
 const router = express.Router();
 import RoomBattleController from "../controller/room/room.controller";
-import { auth } from "@/middleware/auth";
+import { auth } from "../middleware/auth";
 
 router.get("/", RoomBattleController.getRooms);
 
