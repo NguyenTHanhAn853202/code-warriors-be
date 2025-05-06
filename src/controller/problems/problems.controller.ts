@@ -3,7 +3,7 @@ import expressAsyncHandler from "express-async-handler";
 import problemModel from "../../model/problem.model";
 import testcaseModel from "../../model/testcase.model";
 import RankModel from "../../model/rank.model";
-import mongoose from "mongoose";
+import mongoose, { Types } from "mongoose";
 import { AppError } from "../../utils/AppError";
 import { httpCode } from "../../utils/httpCode";
 import sendResponse from "../../utils/response";
@@ -16,13 +16,13 @@ interface TestCaseInput {
 
 class Problems {
   CreateProblems = expressAsyncHandler(async (req: Request, res: Response) => {
-    console.log(" CreateProblems function is running...");
+    console.log("CreateProblems function is running...");
+
     const {
       title,
       description,
       difficulty = [],
       algorithmTypes = [],
-      author,
       testCases = [],
       timeout = 5000,
       startDate = new Date(),
@@ -30,7 +30,12 @@ class Problems {
       source_code,
     } = req.body;
 
-    const requiredFields = ["title", "description", "author"];
+    // Lấy 'author' từ req.user nếu có, nếu không thì gán là undefined
+    const author = req.user ? req.user._id : undefined;
+
+    console.log("Request body:", req.body);
+
+    const requiredFields = ["title", "description"]; // Không yêu cầu author nữa
     const missingFields = requiredFields.filter((field) => !req.body[field]);
     if (missingFields.length > 0) {
       return sendResponse(
@@ -82,7 +87,7 @@ class Problems {
       return sendResponse(
         res,
         "error",
-        "Không tìm thấy thuật toán . Vui lòng kiểm tra lại.",
+        "Không tìm thấy thuật toán. Vui lòng kiểm tra lại.",
         httpCode.BAD_REQUEST,
         {}
       );
@@ -106,7 +111,7 @@ class Problems {
       description,
       difficulty: validRanks.map((rank) => rank._id),
       algorithmTypes: algorithmIds,
-      author,
+      author, // Có thể là undefined
       testCases: [],
       timeout,
       startDate: startDate ? new Date(startDate) : new Date(),
@@ -127,7 +132,7 @@ class Problems {
     await newProblem.save();
     const populatedProblem = await problemModel
       .findById(newProblem._id)
-      .populate("difficulty", "name")
+      .populate("difficulty", "name") 
       .populate("author")
       .populate("testCases", "input")
       .populate("algorithmTypes", "name");
@@ -186,7 +191,9 @@ class Problems {
     async (req: Request, res: Response, next: NextFunction): Promise<void> => {
       try {
         const { id } = req.params;
-
+        if (!Types.ObjectId.isValid(id)) {
+          res.status(400).json({ message: "ID bài toán không hợp lệ" });
+        }
         const problem = await problemModel
           .findById(id)
           .select(

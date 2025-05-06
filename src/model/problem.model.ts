@@ -20,7 +20,7 @@ const problemSchema = new Schema<IProblem>(
     title: { type: String, required: true },
     description: { type: String, required: true },
     difficulty: [{ type: Schema.Types.ObjectId, required: true, ref: "Rank" }],
-    author: { type: Schema.Types.ObjectId, ref: "User", required: true },
+    author: { type: Schema.Types.ObjectId, ref: "User", required: false },
     testCases: [{ type: Schema.Types.ObjectId, ref: "TestCase" }],
     algorithmTypes: [{ type: Schema.Types.ObjectId, ref: "AlgorithmType" }],
     timeout: { type: Number, default: 5000 },

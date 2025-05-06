@@ -2,6 +2,7 @@
 import { Server, Socket } from "socket.io";
 import RoomBattle from "../model/room.model";
 import problemModel, { IProblem } from "../model/problem.model";
+import { Types } from "mongoose";
 
 function handleRoomBattle(client: Socket, server: Server) {
   // Tham gia phòng
@@ -78,7 +79,7 @@ function handleRoomBattle(client: Socket, server: Server) {
         return client.emit("error", { message: "Cần ít nhất 2 người chơi" });
       }
 
-      const count = await problemModel.countDocuments();
+      const count = await problemModel.countDocuments();  
       if (count === 0) {
         return client.emit("error", { message: "Không có bài toán nào" });
       }
@@ -95,7 +96,7 @@ function handleRoomBattle(client: Socket, server: Server) {
       }
 
       // Lưu problemId vào phòng
-      room.problems = randomProblem.id;
+      room.problems = randomProblem._id as Types.ObjectId;
       room.status = "ongoing";
       room.startedAt = new Date();
       await room.save();
@@ -105,8 +106,8 @@ function handleRoomBattle(client: Socket, server: Server) {
 
       server.to(roomId).emit("battle_started", {
         room,
-        problemId: randomProblem._id, // Truyền problemId thay vì toàn bộ bài toán
-        battleUrl: `/battle?matchId=${roomId}`,
+        problemId: randomProblem._id,
+        battleUrl: `/battle?matchId=${roomId}&problemId=${randomProblem._id}`,
       });
     } catch (err) {
       console.error("Lỗi khi bắt đầu trận đấu:", err);
