@@ -195,14 +195,13 @@ class Problems {
           res.status(400).json({ message: "ID bài toán không hợp lệ" });
         }
         const problem = await problemModel
-          .findById(id)
-          .select(
-            "title description difficulty author createdAt timeout startDate endDate"
-          )
-          .populate("difficulty", "name")
-          .populate("algorithmTypes", "name")
-          .populate("author", "username");
-
+        .findById(id)
+        .select("title description difficulty author createdAt timeout startDate endDate testCases")
+        .populate("difficulty", "name")
+        .populate("algorithmTypes", "name")
+        .populate("author", "username")
+        .populate("testCases"); 
+      
         if (!problem) {
           res.status(404).json({ message: "Problem not found" });
           return;
