@@ -410,3 +410,10 @@ export const getRank = expressAsyncHandler(async(req:Request,res:Response)=>{
     const rank = await rankModel.findOne({maxElo:{$gte:user?.elo},minElo:{$lte:user?.elo}})
     sendResponse(res, "success", "get info user", httpCode.OK, rank);
 })
+
+
+export const changeImage = expressAsyncHandler(async(req:Request,res:Response)=>{
+    const file = req.body.image;
+    await userModel.updateOne({_id:req.user._id},{avtImage:file})
+    sendResponse(res, "success", "change image successfully", httpCode.OK);
+})

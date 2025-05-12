@@ -18,6 +18,7 @@ router.get("/topUser",getTopUsers);
 router.get("/rank",auth,getRank);
 
 router.post("/chatbot",chatbot)
+router.post("/update-image",auth,chatbot)
 
 
 export default router;
