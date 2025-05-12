@@ -165,19 +165,27 @@ class DiscussionController{
         if (!content || !discussionId) {
             throw new AppError("Content and discussionId are required", httpCode.BAD_REQUEST, "error");
         }
-
-        const discussion = await Discussion.findById(discussionId);
+        const discussion = await Discussion.findById(discussionId)
+        .populate("author", "username, avtImage");
+        //const discussion = await Discussion.findById(discussionId);
         if (!discussion) {
             throw new AppError("Discussion not found", httpCode.NOT_FOUND, "error");
         }
-
+        
+        const discussionObj = discussion.toObject();
         const comment = await Comment.create({
             author: _id,
             content,
             discussionId,
         });
+        const responseData = {
+            discussion: {
+                ...discussionObj
+            },
+            comment,
+        };
 
-        sendResponse(res, "success", "Comment created successfully", httpCode.OK, comment);
+        sendResponse(res, "success", "Comment created successfully", httpCode.OK, responseData);
     });
         
     getCommentByDiscussion = expressAsyncHandler(async (req: Request, res: Response) => {
