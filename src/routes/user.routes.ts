@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getUser, register, login, getTopUsers,getUserDetail, logout,changePassword, forgotPassword,resetPassword,validateResetToken,updateProfile, getRank } from "../controller/user.controller";
+import { getUser, register, login, getTopUsers,getUserDetail, logout,changePassword, forgotPassword,resetPassword,validateResetToken,updateProfile, getRank, changeImage } from "../controller/user.controller";
 import { auth } from "../middleware/auth";
 import { chatbot } from "../controller/AI.controller";
 const router = Router();
@@ -18,7 +18,7 @@ router.get("/topUser",getTopUsers);
 router.get("/rank",auth,getRank);
 
 router.post("/chatbot",chatbot)
-router.post("/update-image",auth,chatbot)
+router.post("/update-image",auth,changeImage)
 
 
 export default router;
