@@ -81,12 +81,12 @@ export const login = expressAsyncHandler(async (req: Request, res: Response) => 
         throw new AppError("Missing required fields", httpCode.BAD_REQUEST, "error");
     }
 
-    const token = await loginService(email, password);
+    const {token,user} = await loginService(email, password);
     if (!token) {
         throw new AppError("Invalid username or password", httpCode.UNAUTHORIZED, "error");
     }
     res.cookie("token", token, { secure: false, httpOnly: true, sameSite: "lax" });
-    sendResponse(res, "success", "Login successfully", httpCode.OK);
+    sendResponse(res, "success", "Login successfully", httpCode.OK,user);
 });
 
 export const changePassword = expressAsyncHandler(async (req: Request, res: Response) => {
