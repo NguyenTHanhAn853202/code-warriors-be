@@ -20,7 +20,7 @@ export interface ISubmission extends Document {
   
 const submissionSchema = new Schema<ISubmission>(
     {
-      user: { type: Schema.Types.ObjectId, ref: "User", required: true },
+      user: { type: Schema.Types.ObjectId, ref: "User", required: false },
       username: { type: String, required: 'false' },
       problem: { type: Schema.Types.ObjectId, ref: "Problem", required: true },
       match: { type: Schema.Types.ObjectId, ref: "Match", default: null }, 
