@@ -31,7 +31,7 @@ export interface IRoomBattle extends Document {
 
 const roomBattleSchema = new Schema<IRoomBattle>({
   roomId: { type: String, required: true, unique: true },
-  players: [{ type: String }], // Lưu trữ username
+  players: [{ type: String }], 
   maxPlayers: { type: Number, default: 4, min: 2, max: 4 },
   createdBy: { type: String, required: true },
   status: {
@@ -48,7 +48,7 @@ const roomBattleSchema = new Schema<IRoomBattle>({
       submittedAt: { type: Date },
     },
   ],
-  submitting: [{ type: String }], // Array of usernames currently submitting
+  submitting: [{ type: String }], 
   password: { type: String, select: false },
   winner: { type: String, default: null },
   rankings: [
@@ -66,7 +66,6 @@ const roomBattleSchema = new Schema<IRoomBattle>({
   endedAt: { type: Date },
 });
 
-// Add index for better query performance
 roomBattleSchema.index({ status: 1 });
 roomBattleSchema.index({ "submissions.username": 1 });
 

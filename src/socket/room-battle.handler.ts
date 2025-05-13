@@ -15,24 +15,18 @@ interface IProblemPopulated {
   description?: string;
 }
 
-// Thêm hàm tính toán xếp hạng
 function calculateRankings(submissions: any[], startedAt: Date) {
   return submissions
     .map((sub) => ({
       ...sub,
-      // Tính thời gian làm bài (ms)
       duration:
         new Date(sub.submittedAt).getTime() - new Date(startedAt).getTime(),
     }))
     .sort((a, b) => {
-      // So sánh theo điểm số trước
       if (b.grade !== a.grade) return b.grade - a.grade;
-      // Nếu điểm bằng nhau, so sánh theo thời gian làm bài
       if (a.duration !== b.duration) return a.duration - b.duration;
-      // Nếu thời gian làm bài bằng nhau, so sánh theo execution time
       if (a.executionTime !== b.executionTime)
         return a.executionTime - b.executionTime;
-      // Cuối cùng so sánh theo memory
       return a.memoryUsage - b.memoryUsage;
     })
     .map((sub, index) => ({
@@ -42,7 +36,6 @@ function calculateRankings(submissions: any[], startedAt: Date) {
 }
 
 function handleRoomBattle(client: Socket, server: Server) {
-  // Tham gia phòng
   client.on("join_room", async ({ roomId, username }) => {
     try {
       console.log("join_room", roomId, username);
@@ -77,7 +70,6 @@ function handleRoomBattle(client: Socket, server: Server) {
     }
   });
 
-  // Rời phòng
   client.on("leave_room", async ({ roomId, username }) => {
     try {
       const room = await RoomBattle.findOne({ roomId });
@@ -144,7 +136,6 @@ function handleRoomBattle(client: Socket, server: Server) {
         battleUrl: `/battle?matchId=${roomId}&problemId=${randomProblem._id}`,
       });
 
-      // Set timeout for the battle
       setTimeout(async () => {
         if (room.status === "ongoing") {
           room.status = "finished";
@@ -165,14 +156,12 @@ function handleRoomBattle(client: Socket, server: Server) {
     "submit_code",
     async ({ roomId, username, sourceCode, languageId }) => {
       try {
-        // Validate input
         if (!roomId || !username || !sourceCode || !languageId) {
           return client.emit("submission_error", {
             message: "Thiếu thông tin",
           });
         }
 
-        // Get room
         const room = await RoomBattle.findOne({ roomId }).populate<{
           problems: IProblemPopulated;
         }>({
@@ -185,7 +174,6 @@ function handleRoomBattle(client: Socket, server: Server) {
           });
         }
 
-        // Validate room state
         if (room.status !== "ongoing") {
           return client.emit("submission_error", {
             message: "Phòng đã kết thúc",
@@ -199,7 +187,6 @@ function handleRoomBattle(client: Socket, server: Server) {
         }
 
         try {
-          // Get testcases
           const testcases = await testcaseModel
             .find({ problem: room.problems._id })
             .select("input expectedOutput");
@@ -207,8 +194,6 @@ function handleRoomBattle(client: Socket, server: Server) {
           if (!testcases.length) {
             throw new Error("Không có testcase nào");
           }
-
-          // Run code evaluation với kiểm tra timeout
           const evaluation = await runCode(
             languageId,
             sourceCode,
@@ -216,7 +201,6 @@ function handleRoomBattle(client: Socket, server: Server) {
             room.problems?.timeout || 180000
           );
 
-          // Calculate submission time với kiểm tra startedAt
           const submittedAt = new Date();
           if (!room.startedAt) {
             throw new Error("Thời gian bắt đầu không hợp lệ");
@@ -224,7 +208,6 @@ function handleRoomBattle(client: Socket, server: Server) {
           const timeSubmission =
             submittedAt.getTime() - room.startedAt.getTime();
 
-          // Create submission
           const submission = await submissionModel.create({
             user: client.data?.userId || null,
             username,
@@ -239,10 +222,8 @@ function handleRoomBattle(client: Socket, server: Server) {
               evaluation.point === testcases.length
                 ? "Accepted"
                 : "Wrong Answer",
-            timeSubmission, // Thêm thời gian làm bài
+            timeSubmission,
           });
-
-          // Update room với atomic operation
           const updatedRoom = await RoomBattle.findOneAndUpdate(
             { _id: room._id, status: "ongoing" },
             {
@@ -258,7 +239,7 @@ function handleRoomBattle(client: Socket, server: Server) {
                     $set: {
                       status: "finished",
                       endedAt: submittedAt,
-                      winner: username, // Tạm set winner, sẽ update lại sau
+                      winner: username,
                     },
                   }
                 : {}),
@@ -270,8 +251,6 @@ function handleRoomBattle(client: Socket, server: Server) {
             await submissionModel.findByIdAndDelete(submission._id);
             throw new Error("Không thể cập nhật phòng");
           }
-
-          // Notify submission result
           const submissionResult = {
             username,
             grade: evaluation.point,
@@ -292,7 +271,6 @@ function handleRoomBattle(client: Socket, server: Server) {
 
           client.emit("submission_success", submissionResult);
 
-          // Xử lý khi phòng kết thúc
           if (updatedRoom.status === "finished") {
             const allSubmissions = await submissionModel
               .find({ room: room._id })
@@ -304,7 +282,6 @@ function handleRoomBattle(client: Socket, server: Server) {
             const rankings = calculateRankings(allSubmissions, room.startedAt);
             const winner = rankings[0];
 
-            // Update final rankings & winner
             await RoomBattle.findByIdAndUpdate(room._id, {
               winner: winner.username,
               rankings: rankings.map((r) => ({
@@ -318,13 +295,11 @@ function handleRoomBattle(client: Socket, server: Server) {
               })),
             });
 
-            // Gửi event với redirectUrl
             server.to(roomId).emit("battle_finished", {
               message: "Trận đấu đã kết thúc",
               redirectUrl: `/battle-result/${roomId}`,
             });
 
-            // Đóng phòng
             server.in(roomId).socketsLeave(roomId);
           }
         } catch (error: any) {

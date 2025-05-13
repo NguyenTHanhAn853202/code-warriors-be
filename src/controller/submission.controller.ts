@@ -168,14 +168,12 @@ class SubmissionController {
       try {
         const { sourceCode, languageId, roomId } = req.body;
 
-        // Validate user
         if (!req.user?._id || !req.user?.username) {
           throw new AppError("Unauthorized", httpCode.UNAUTHORIZED, "warning");
         }
         const userId = req.user._id;
         const username = req.user.username;
 
-        // Validate input
         if (!sourceCode || !languageId || !roomId) {
           throw new AppError(
             "Thiếu thông tin",
@@ -184,7 +182,6 @@ class SubmissionController {
           );
         }
 
-        // First get room to check state
         const room = await RoomBattle.findOne({ roomId }).populate<{
           problems: IPopulatedProblem;
         }>({
@@ -200,7 +197,6 @@ class SubmissionController {
           );
         }
 
-        // Validate room state
         if (room.status !== "ongoing") {
           throw new AppError(
             "Phòng đã kết thúc",
@@ -217,7 +213,6 @@ class SubmissionController {
           );
         }
 
-        // Lock room for submission
         const lockedRoom = await RoomBattle.findOneAndUpdate(
           {
             _id: room._id,
@@ -238,7 +233,6 @@ class SubmissionController {
         }
 
         try {
-          // Get testcases
           const testcases = await testcaseModel
             .find({ problem: room.problems._id })
             .select("input expectedOutput");
@@ -251,7 +245,6 @@ class SubmissionController {
             );
           }
 
-          // Run code evaluation
           const evaluation = await runCode(
             languageId,
             sourceCode,
@@ -259,7 +252,6 @@ class SubmissionController {
             room.problems.timeout || 180000
           );
 
-          // Create submission
           const submission = await submissionModel.create({
             user: userId,
             problem: room.problems._id,
@@ -276,7 +268,6 @@ class SubmissionController {
             username: username,
           });
 
-          // Update room with submission
           const updatedRoom = await RoomBattle.findOneAndUpdate(
             {
               _id: room._id,
@@ -297,7 +288,7 @@ class SubmissionController {
                     $set: {
                       status: "finished",
                       endedAt: new Date(),
-                      winner: username, // Set winner if this is the last submission
+                      winner: username, 
                     },
                   }
                 : {}),
@@ -306,7 +297,6 @@ class SubmissionController {
           );
 
           if (!updatedRoom) {
-            // Cleanup if update fails
             await submissionModel.findByIdAndDelete(submission._id);
             throw new AppError(
               "Không thể thêm bài nộp",
@@ -315,7 +305,6 @@ class SubmissionController {
             );
           }
 
-          // If room is complete, create leaderboard entries
           if (updatedRoom.status === "finished") {
             await Promise.all(
               updatedRoom.submissions.map((sub) =>
@@ -358,7 +347,6 @@ class SubmissionController {
         } catch (error) {
           throw error;
         } finally {
-          // Always cleanup submitting status
           await RoomBattle.updateOne(
             { _id: room._id },
             { $pull: { submitting: username } }
@@ -382,8 +370,6 @@ class SubmissionController {
   getBattleResult = expressAsyncHandler(async (req: Request, res: Response) => {
     try {
       const { roomId } = req.params;
-
-      // Lấy thông tin phòng với submissions và problem
       const room = await RoomBattle.findOne({ roomId })
         .populate({
           path: "problems",
@@ -405,8 +391,6 @@ class SubmissionController {
           httpCode.NOT_FOUND
         );
       }
-
-      // Add type assertion for room.rankings
       const formattedRankings: IRanking[] = (room.rankings || []).map(
         (rank) => {
           const submission = room.submissions.find(
@@ -426,14 +410,10 @@ class SubmissionController {
         }
       );
 
-      // Sắp xếp rankings theo thứ hạng
       const sortedRankings = formattedRankings.sort((a, b) => {
-        // Sort by points desc
         if (b.points !== a.points) return b.points - a.points;
-        // Then by execution time asc
         if (a.executionTime !== b.executionTime)
           return a.executionTime - b.executionTime;
-        // Then by memory usage asc
         return a.memoryUsage - b.memoryUsage;
       });
 
@@ -451,7 +431,7 @@ class SubmissionController {
           endedAt: room.endedAt,
           rankings: sortedRankings.map((r, index) => ({
             ...r,
-            rank: index + 1, // Update rank based on sort order
+            rank: index + 1, 
           })),
         }
       );
