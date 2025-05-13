@@ -20,7 +20,6 @@ async function runCode_Room(
   testcases: ITestCase[],
   timeout: number
 ): Promise<IResponse> {
-  // Validate inputs
   if (
     !languageId ||
     !sourceCode ||

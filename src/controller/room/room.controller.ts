@@ -19,7 +19,7 @@ class RoomBattleController {
       const rooms = await RoomBattleModel.find({ status: "waiting" });
 
       res.json({
-        status: "success",  
+        status: "success",
         data: rooms,
       });
     }
@@ -152,37 +152,94 @@ class RoomBattleController {
     }
   );
 
-  getRoomById = expressAsyncHandler(
-    async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  getRoomById = expressAsyncHandler(async (req: Request, res: Response) => {
+    try {
       const { roomId } = req.params;
-      const room = await RoomBattleModel.findOne({ roomId });
-      if (!room) {
-        throw new AppError("Room not found", httpCode.NOT_FOUND, "error");
-      }
-      res.status(httpCode.OK).json({
-        status: "success",
-        data: room,
+
+      // Lấy thông tin phòng và populate submissions
+      const room = await RoomBattleModel.findOne({ roomId }).populate({
+        path: "submissions.submission",
+        select: "grade executionTime memoryUsage status",
       });
+
+      if (!room) {
+        return sendResponse(
+          res,
+          "error",
+          "Phòng không tồn tại",
+          httpCode.NOT_FOUND
+        );
+      }
+
+      // Nếu phòng đã kết thúc, lấy thêm rankings
+      if (room.status === "finished") {
+        const submissions = await submissionModel
+          .find({ room: room._id })
+          .select("username grade executionTime memoryUsage status")
+          .lean();
+
+        // Tính toán rankings
+        const rankings = submissions.sort((a, b) => {
+          if (b.grade !== a.grade) return b.grade - a.grade;
+          if (a.executionTime !== b.executionTime)
+            return a.executionTime - b.executionTime;
+          return a.memoryUsage - b.memoryUsage;
+        });
+
+        // Format response data
+        const responseData = {
+          ...room.toObject(),
+          submissions: rankings.map((sub, index) => ({
+            ...sub,
+            rank: index + 1,
+          })),
+        };
+
+        return sendResponse(
+          res,
+          "success",
+          "Lấy thông tin phòng thành công",
+          httpCode.OK,
+          responseData
+        );
+      }
+
+      // Nếu phòng chưa kết thúc, trả về thông tin cơ bản
+      return sendResponse(
+        res,
+        "success",
+        "Lấy thông tin phòng thành công",
+        httpCode.OK,
+        room
+      );
+    } catch (error) {
+      console.error("Get room error:", error);
+      return sendResponse(
+        res,
+        "error",
+        "Lỗi server",
+        httpCode.INTERNAL_SERVER_ERROR
+      );
     }
-  );
+  });
 
+  submit = expressAsyncHandler(async (req: Request, res: Response) => {
+    const { languageId, sourceCode, problemId, roomId, roomMatch } = req.body;
+    const testcases = await testcaseModel
+      .find({ problem: problemId })
+      .select("expectedOutput input problem");
+    const problem = await problemModel.findById(problemId);
 
-  submit = expressAsyncHandler(async(req:Request,res:Response)=>{
-    const {languageId, sourceCode, problemId,roomId,roomMatch} = req.body
-    const testcases = await testcaseModel.find({problem:problemId}).select("expectedOutput input problem")
-    const problem = await problemModel.findById(problemId)
-
-    if(!problem){
-        throw new AppError("Not found problem",httpCode.BAD_REQUEST,"warning")
+    if (!problem) {
+      throw new AppError("Not found problem", httpCode.BAD_REQUEST, "warning");
     }
 
-    
-    const userId = req.user._id
-    
+    const userId = req.user._id;
+
     // const leaderboard = await Leaderboard.findOneAndUpdate({user:userId, problem:problemId},{$inc:{attempts:1},score:evaluate.point, time:evaluate.time, memory:evaluate.memory, oldSource:sourceCode,languageId:languageId},{new:true,upsert:true})
 
-    let evaluation
-    let submission: ISubmission
+    let evaluation;
+    let submission: ISubmission;
 
     try {
       evaluation = await runCode(
@@ -211,47 +268,42 @@ class RoomBattleController {
         memoryUsage: 0,
         executionTime: 0,
         status: "Wrong Answer",
-      })
+      });
     }
-    if(!submission)
-      throw new AppError("error",httpCode.BAD_REQUEST,'error')
-    const room = await roomModel.findById(roomId)
-    if(!room)
-      throw new AppError("error",httpCode.BAD_REQUEST,'error')
+    if (!submission) throw new AppError("error", httpCode.BAD_REQUEST, "error");
+    const room = await roomModel.findById(roomId);
+    if (!room) throw new AppError("error", httpCode.BAD_REQUEST, "error");
     room?.submissions.push({
-      username:req.user.username,
-      submission:submission._id as mongoose.Types.ObjectId
-    })
+      username: req.user.username,
+      submission: submission._id as mongoose.Types.ObjectId,
+    });
 
-    if(room?.submissions.length === room?.players.length){
-      const arr = []
-      for(let i =0;i<(room?.submissions.length );i++){
-        let item = room?.submissions[i]
-        const s = await submissionModel.findById(item.submission)
-        if(!s)
-          throw new AppError("error",httpCode.BAD_REQUEST,'error')
+    if (room?.submissions.length === room?.players.length) {
+      const arr = [];
+      for (let i = 0; i < room?.submissions.length; i++) {
+        let item = room?.submissions[i];
+        const s = await submissionModel.findById(item.submission);
+        if (!s) throw new AppError("error", httpCode.BAD_REQUEST, "error");
         arr.push({
-          username:item.username,
-          grade:s?.grade,
-          time:s?.executionTime,
-          memory:s?.memoryUsage
-        })
+          username: item.username,
+          grade: s?.grade,
+          time: s?.executionTime,
+          memory: s?.memoryUsage,
+        });
       }
       arr.sort((a, b) => {
         if (b.grade !== a.grade) return b.grade - a.grade; // grade giảm dần
-        if (a.time !== b.time) return a.time - b.time;     // time tăng dần
-        return a.memory - b.memory;                        // memory tăng dần
+        if (a.time !== b.time) return a.time - b.time; // time tăng dần
+        return a.memory - b.memory; // memory tăng dần
       });
-      room.winner = arr[0].username
-      req.io?.to(roomMatch).emit("finish_room",{
-        room:room
-      })
+      room.winner = arr[0].username;
+      req.io?.to(roomMatch).emit("finish_room", {
+        room: room,
+      });
     }
-    await room.save()
-    sendResponse(res,"success","success",httpCode.OK,room)
-
-
-  })
+    await room.save();
+    sendResponse(res, "success", "success", httpCode.OK, room);
+  });
 }
 
 export default new RoomBattleController();

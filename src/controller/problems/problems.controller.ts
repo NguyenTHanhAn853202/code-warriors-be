@@ -132,7 +132,7 @@ class Problems {
     await newProblem.save();
     const populatedProblem = await problemModel
       .findById(newProblem._id)
-      .populate("difficulty", "name") 
+      .populate("difficulty", "name")
       .populate("author")
       .populate("testCases", "input")
       .populate("algorithmTypes", "name");
@@ -187,39 +187,66 @@ class Problems {
     }
   );
 
-  ViewOneProblems = expressAsyncHandler(
-    async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-      try {
-        const { id } = req.params;
-        if (!Types.ObjectId.isValid(id)) {
-          res.status(400).json({ message: "ID bài toán không hợp lệ" });
-        }
-        const problem = await problemModel
+ ViewOneProblems = expressAsyncHandler(
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { id } = req.params;
+
+      // Validate ObjectId
+      if (!Types.ObjectId.isValid(id)) {
+        res.status(400).json({
+          success: false,
+          message: "ID bài toán không hợp lệ"
+        });
+        return;
+      }
+
+      const problem = await problemModel
         .findById(id)
-        .select("title description difficulty author createdAt timeout startDate endDate testCases")
+        .select(
+          "_id title description difficulty author createdAt timeout startDate endDate testCases"
+        )
         .populate("difficulty", "name")
         .populate("algorithmTypes", "name")
         .populate("author", "username")
-        .populate("testCases"); 
-      
-        if (!problem) {
-          res.status(404).json({ message: "Problem not found" });
-          return;
-        }
+        .populate("testCases");
 
-        res.status(200).json({
-          message: "Problem retrieved successfully",
-          problem,
+      if (!problem) {
+        res.status(404).json({
+          success: false,
+          message: "Không tìm thấy bài toán"
         });
-      } catch (error) {
-        console.error("Error retrieving problem:", error);
-        res.status(500).json({
-          message: "Internal server error",
-          error: error instanceof Error ? error.message : "Unknown error",
-        });
+        return;
       }
+
+      // Match the frontend expected structure
+      res.status(200).json({
+        success: true,
+        message: "Lấy thông tin bài toán thành công",
+        problem: {
+          _id: problem._id,
+          title: problem.title,
+          description: problem.description,
+          difficulty: problem.difficulty,
+          author: problem.author,
+          createdAt: problem.createdAt,
+          timeout: problem.timeout,
+          startDate: problem.startDate,
+          endDate: problem.endDate,
+          testCases: problem.testCases
+        }
+      });
+
+    } catch (error) {
+      console.error("Error retrieving problem:", error);
+      res.status(500).json({
+        success: false,
+        message: "Lỗi server",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
     }
-  );
+  }
+);
 
   UpdateProblem = expressAsyncHandler(
     async (req: Request, res: Response, next: NextFunction): Promise<void> => {

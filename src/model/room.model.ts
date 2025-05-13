@@ -11,7 +11,18 @@ export interface IRoomBattle extends Document {
   submissions: {
     username: string;
     submission: mongoose.Types.ObjectId;
+    submittedAt?: Date;
   }[];
+  submitting: string[];
+  rankings: Array<{
+    username: string;
+    points: number;
+    executionTime: number;
+    memoryUsage: number;
+    status: string;
+    duration: number;
+    rank: number;
+  }>;
   password?: string;
   winner?: string | null;
   startedAt?: Date;
@@ -34,13 +45,29 @@ const roomBattleSchema = new Schema<IRoomBattle>({
     {
       username: { type: String },
       submission: { type: Schema.Types.ObjectId, ref: "Submission" },
+      submittedAt: { type: Date },
     },
   ],
-
+  submitting: [{ type: String }], // Array of usernames currently submitting
   password: { type: String, select: false },
   winner: { type: String, default: null },
+  rankings: [
+    {
+      username: { type: String },
+      points: { type: Number },
+      executionTime: { type: Number },
+      memoryUsage: { type: Number },
+      status: { type: String },
+      rank: { type: Number },
+      submittedAt: { type: Date },
+    },
+  ],
   startedAt: { type: Date },
   endedAt: { type: Date },
 });
+
+// Add index for better query performance
+roomBattleSchema.index({ status: 1 });
+roomBattleSchema.index({ "submissions.username": 1 });
 
 export default mongoose.model<IRoomBattle>("RoomBattle", roomBattleSchema);

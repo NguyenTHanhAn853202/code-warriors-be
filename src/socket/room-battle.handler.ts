@@ -2,9 +2,44 @@ import { Server, Socket } from "socket.io";
 import RoomBattle from "../model/room.model";
 import problemModel, { IProblem } from "../model/problem.model";
 import mongoose, { Types } from "mongoose";
-import testcaseModel from "@/model/testcase.model";
-import submissionModel, { ISubmission } from "@/model/submission.model";
-import runCode_Room from "@/utils/runCode_Room";
+import testcaseModel from "../model/testcase.model";
+import submissionModel, { ISubmission } from "../model/submission.model";
+import runCode_Room from "../utils/runCode_Room";
+import runCode from "../utils/runCode";
+import { time } from "console";
+
+interface IProblemPopulated {
+  _id: Types.ObjectId;
+  timeout?: number;
+  title?: string;
+  description?: string;
+}
+
+// Thêm hàm tính toán xếp hạng
+function calculateRankings(submissions: any[], startedAt: Date) {
+  return submissions
+    .map((sub) => ({
+      ...sub,
+      // Tính thời gian làm bài (ms)
+      duration:
+        new Date(sub.submittedAt).getTime() - new Date(startedAt).getTime(),
+    }))
+    .sort((a, b) => {
+      // So sánh theo điểm số trước
+      if (b.grade !== a.grade) return b.grade - a.grade;
+      // Nếu điểm bằng nhau, so sánh theo thời gian làm bài
+      if (a.duration !== b.duration) return a.duration - b.duration;
+      // Nếu thời gian làm bài bằng nhau, so sánh theo execution time
+      if (a.executionTime !== b.executionTime)
+        return a.executionTime - b.executionTime;
+      // Cuối cùng so sánh theo memory
+      return a.memoryUsage - b.memoryUsage;
+    })
+    .map((sub, index) => ({
+      ...sub,
+      rank: index + 1,
+    }));
+}
 
 function handleRoomBattle(client: Socket, server: Server) {
   // Tham gia phòng
@@ -126,148 +161,183 @@ function handleRoomBattle(client: Socket, server: Server) {
     }
   });
 
-  // client.on(
-  //   "submit_room",
-  //   async ({ roomId, languageId, sourceCode, username }) => {
-  //     try {
-  //       // Validate inputs
-  //       if (
-  //         !roomId ||
-  //         !languageId ||
-  //         !sourceCode ||
-  //         !username ||
-  //         !client.user?._id
-  //       ) {
-  //         client.emit("error", {
-  //           message: "Thiếu thông tin hoặc chưa xác thực",
-  //         });
-  //         return;
-  //       }
+  client.on(
+    "submit_code",
+    async ({ roomId, username, sourceCode, languageId }) => {
+      try {
+        // Validate input
+        if (!roomId || !username || !sourceCode || !languageId) {
+          return client.emit("submission_error", {
+            message: "Thiếu thông tin",
+          });
+        }
 
-  //       // Get room
-  //       const room = await RoomBattle.findOne({ roomId }).populate(
-  //         "submissions.submission"
-  //       );
-  //       if (!room || room.status !== "ongoing") {
-  //         client.emit("error", {
-  //           message: "Phòng không tồn tại hoặc đã kết thúc",
-  //         });
-  //         return;
-  //       }
+        // Get room
+        const room = await RoomBattle.findOne({ roomId }).populate<{
+          problems: IProblemPopulated;
+        }>({
+          path: "problems",
+          select: "timeout",
+        });
+        if (!room) {
+          return client.emit("submission_error", {
+            message: "Phòng không tồn tại",
+          });
+        }
 
-  //       // Check duplicate submission
-  //       if (room.submissions.find((sub) => sub.username === username)) {
-  //         client.emit("error", { message: "Bạn đã nộp bài rồi" });
-  //         return;
-  //       }
+        // Validate room state
+        if (room.status !== "ongoing") {
+          return client.emit("submission_error", {
+            message: "Phòng đã kết thúc",
+          });
+        }
 
-  //       // Get problem and testcases
-  //       const problem = await problemModel.findById(room.problems);
-  //       const testcases = await testcaseModel.find({ problem: room.problems });
+        if (room.submissions.some((sub) => sub.username === username)) {
+          return client.emit("submission_error", {
+            message: "Bạn đã nộp bài rồi",
+          });
+        }
 
-  //       if (!problem) {
-  //         client.emit("error", { message: "Không tìm thấy bài toán" });
-  //         return;
-  //       }
+        try {
+          // Get testcases
+          const testcases = await testcaseModel
+            .find({ problem: room.problems._id })
+            .select("input expectedOutput");
 
-  //       // Create submission
-  //       let submission;
-  //       try {
-  //         const evaluation = await runCode_Room(
-  //           languageId,
-  //           sourceCode,
-  //           testcases,
-  //           problem.timeout || 180
-  //         );
-  //         submission = await submissionModel.create({
-  //           user: client.user._id,
-  //           problem: room.problems,
-  //           code: sourceCode,
-  //           language: languageId,
-  //           grade: evaluation.point,
-  //           memoryUsage: evaluation.memory,
-  //           executionTime: evaluation.time,
-  //           status: "Accepted",
-  //         });
-  //       } catch (error) {
-  //         submission = await submissionModel.create({
-  //           user: client.user._id,
-  //           problem: room.problems,
-  //           code: sourceCode,
-  //           language: languageId,
-  //           grade: 0,
-  //           memoryUsage: 0,
-  //           executionTime: 0,
-  //           status: "Wrong Answer",
-  //         });
-  //       }
+          if (!testcases.length) {
+            throw new Error("Không có testcase nào");
+          }
 
-  //       // Add submission to room
-  //       room.submissions.push({
-  //         username,
-  //         submission: submission.id,
-  //       });
+          // Run code evaluation với kiểm tra timeout
+          const evaluation = await runCode(
+            languageId,
+            sourceCode,
+            testcases,
+            room.problems?.timeout || 180000
+          );
 
-  //       // Finish room if all submitted
-  //       if (room.submissions.length === room.players.length) {
-  //         room.status = "finished";
-  //         room.endedAt = new Date();
-  //         room.winner = username; // Set current user as winner if accepted
+          // Calculate submission time với kiểm tra startedAt
+          const submittedAt = new Date();
+          if (!room.startedAt) {
+            throw new Error("Thời gian bắt đầu không hợp lệ");
+          }
+          const timeSubmission =
+            submittedAt.getTime() - room.startedAt.getTime();
 
-  //         server.to(roomId).emit("finish_room", { room });
-  //       }
+          // Create submission
+          const submission = await submissionModel.create({
+            user: client.data?.userId || null,
+            username,
+            problem: room.problems._id,
+            room: room._id,
+            code: sourceCode,
+            language: languageId,
+            grade: evaluation.point,
+            memoryUsage: evaluation.memory,
+            executionTime: evaluation.time,
+            status:
+              evaluation.point === testcases.length
+                ? "Accepted"
+                : "Wrong Answer",
+            timeSubmission, // Thêm thời gian làm bài
+          });
 
-  //       await room.save();
-  //       client.emit("submission_success", {
-  //         message: "Nộp bài thành công",
-  //         submissionId: submission.id,
-  //       });
-  //     } catch (err) {
-  //       console.error("Error in submit_room:", err);
-  //       client.emit("error", { message: "Lỗi khi nộp bài" });
-  //     }
-  //   }
-  // );
+          // Update room với atomic operation
+          const updatedRoom = await RoomBattle.findOneAndUpdate(
+            { _id: room._id, status: "ongoing" },
+            {
+              $push: {
+                submissions: {
+                  username,
+                  submission: submission._id,
+                  submittedAt,
+                },
+              },
+              ...(room.submissions.length + 1 === room.players.length
+                ? {
+                    $set: {
+                      status: "finished",
+                      endedAt: submittedAt,
+                      winner: username, // Tạm set winner, sẽ update lại sau
+                    },
+                  }
+                : {}),
+            },
+            { new: true }
+          );
 
-  client.on("get_room_results", async ({ roomId }) => {
-    try {
-      const room = await RoomBattle.findOne({ roomId }).populate<{
-        submissions: { username: string; submission: ISubmission }[];
-      }>({
-        path: "submissions.submission",
-        model: "Submission",
-      });
+          if (!updatedRoom) {
+            await submissionModel.findByIdAndDelete(submission._id);
+            throw new Error("Không thể cập nhật phòng");
+          }
 
-      if (!room) {
-        client.emit("error", { message: "Phòng không tồn tại" });
-        return;
+          // Notify submission result
+          const submissionResult = {
+            username,
+            grade: evaluation.point,
+            total: testcases.length,
+            executionTime: evaluation.time,
+            memoryUsage: evaluation.memory,
+            status:
+              evaluation.point === testcases.length
+                ? "Accepted"
+                : "Wrong Answer",
+            timeSubmission,
+          };
+
+          server.to(roomId).emit("submission_update", {
+            submission: submissionResult,
+            isComplete: updatedRoom.status === "finished",
+          });
+
+          client.emit("submission_success", submissionResult);
+
+          // Xử lý khi phòng kết thúc
+          if (updatedRoom.status === "finished") {
+            const allSubmissions = await submissionModel
+              .find({ room: room._id })
+              .select(
+                "username grade executionTime memoryUsage status timeSubmission"
+              )
+              .lean();
+
+            const rankings = calculateRankings(allSubmissions, room.startedAt);
+            const winner = rankings[0];
+
+            // Update final rankings & winner
+            await RoomBattle.findByIdAndUpdate(room._id, {
+              winner: winner.username,
+              rankings: rankings.map((r) => ({
+                username: r.username,
+                points: r.grade,
+                executionTime: r.executionTime,
+                memoryUsage: r.memoryUsage,
+                status: r.status,
+                duration: r.timeSubmission,
+                rank: r.rank,
+              })),
+            });
+
+            // Gửi event với redirectUrl
+            server.to(roomId).emit("battle_finished", {
+              message: "Trận đấu đã kết thúc",
+              redirectUrl: `/battle-result/${roomId}`,
+            });
+
+            // Đóng phòng
+            server.in(roomId).socketsLeave(roomId);
+          }
+        } catch (error: any) {
+          client.emit("submission_error", {
+            message: error.message || "Lỗi khi xử lý bài nộp",
+          });
+        }
+      } catch (err) {
+        console.error("Error in submit_code:", err);
+        client.emit("submission_error", { message: "Lỗi server" });
       }
-
-      const results = room.players.map((player) => {
-        const submission = room.submissions.find(
-          (sub) => sub.username === player
-        );
-        return {
-          username: player,
-          grade: submission?.submission?.grade || null,
-          executionTime: submission?.submission?.executionTime || null,
-          memoryUsage: submission?.submission?.memoryUsage || null,
-          status: submission?.submission?.status || "Not Submitted",
-        };
-      });
-
-      client.emit("room_results", {
-        results,
-        winner: room.winner,
-        status: room.status,
-        startedAt: room.startedAt,
-        endedAt: room.endedAt,
-      });
-    } catch (err) {
-      console.error("Error in get_room_results:", err);
-      client.emit("error", { message: "Lỗi khi lấy kết quả phòng" });
     }
-  });
+  );
 }
 
 export default handleRoomBattle;
