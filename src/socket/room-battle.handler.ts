@@ -14,7 +14,6 @@ interface IProblemPopulated {
   title?: string;
   description?: string;
 }
-
 function calculateRankings(submissions: any[], startedAt: Date) {
   return submissions
     .map((sub) => ({
@@ -23,10 +22,15 @@ function calculateRankings(submissions: any[], startedAt: Date) {
         new Date(sub.submittedAt).getTime() - new Date(startedAt).getTime(),
     }))
     .sort((a, b) => {
-      if (b.grade !== a.grade) return b.grade - a.grade;
-      if (a.duration !== b.duration) return a.duration - b.duration;
-      if (a.executionTime !== b.executionTime)
+      if (b.grade !== a.grade) {
+        return b.grade - a.grade;
+      }
+      if (a.timeSubmission !== b.timeSubmission) {
+        return a.timeSubmission - b.timeSubmission;
+      }
+      if (a.executionTime !== b.executionTime) {
         return a.executionTime - b.executionTime;
+      }
       return a.memoryUsage - b.memoryUsage;
     })
     .map((sub, index) => ({
