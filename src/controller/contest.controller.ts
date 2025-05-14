@@ -81,16 +81,16 @@ class ContestController {
             })
             .populate("testCases", "input expectedOutput");
     
-        const userContests = contests.filter(contest => contest.author !== null);
+       // const userContests = contests.filter(contest => contest.author !== null);
     
-        sendResponse(res, "success", "Contests retrieved successfully", httpCode.OK, { contests: userContests });
+        sendResponse(res, "success", "Contests retrieved successfully", httpCode.OK, { contests});
     });
     
     viewAllMyContests = expressAsyncHandler(async (req: Request, res: Response) => {
         const userId = req.user._id;
         const contests = await contestModel
             .find({ author: userId })
-            .sort({ createdAt: 1 })
+            .sort({ createdAt: -1 })
             .select("title description difficulty startDate endDate source_code")
             .populate("difficulty", "name")
             .populate("testCases", "input expectedOutput");
@@ -100,7 +100,7 @@ class ContestController {
 
     GetLatestContests = expressAsyncHandler(async (req: Request, res: Response) => {
         const allContests = await contestModel
-            .find({})
+            .find({ endDate: { $ne: null } })
             .sort({ createdAt: -1 })
             .populate("difficulty", "name")
             .populate({
@@ -108,9 +108,9 @@ class ContestController {
                 select: "username role",
                 match: { role: "user" }
             });
-        const userContests = allContests.filter(contest => contest.author !== null);
+       // const userContests = allContests.filter(contest => contest.author !== null);
 
-        const latestContests = userContests.slice(0, 3);
+        const latestContests = allContests.slice(0, 3);
     
         sendResponse(res, "success", "Latest contests retrieved successfully", httpCode.OK, {
             contests: latestContests,
