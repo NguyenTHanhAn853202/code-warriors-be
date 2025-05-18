@@ -35,9 +35,11 @@ class RoomBattleController {
       const hashedPassword = password
         ? await hashPassword(password)
         : undefined;
-
+      const generateRoomId = () => {
+        return Math.floor(10000 + Math.random() * 90000).toString();
+      };
       const newRoom = await RoomBattleModel.create({
-        roomId: uuidv4(),
+        roomId: generateRoomId(),
         players: [username],
         maxPlayers: maxPlayers || 4,
         createdBy: username,
