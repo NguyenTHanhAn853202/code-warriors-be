@@ -617,16 +617,15 @@ export const getAllUsersDashBoard = expressAsyncHandler(
         createdAt: { $gte: fifteenDaysAgo },
       });
 
+      const totalUsersExcludingAdmin = await userModel.countDocuments({
+        role: { $ne: "admin" },
+      });
+
       const data = {
         users: usersWithHistory,
         totalProblemsSolvedAllUsers,
         newUsersLast15Days,
-        pagination: {
-          total,
-          page,
-          limit,
-          totalPages: Math.ceil(total / limit),
-        },
+        totalUsersExcludingAdmin,
       };
 
       sendResponse(
