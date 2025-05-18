@@ -13,6 +13,7 @@ import { EMAIL_USER, EMAIL_PASS, TOKEN_KEY } from "../utils/secret";
 import crypto from "crypto";
 import rankModel from "../model/rank.model";
 import Leaderboard from "../model/leaderboard.model";
+import submissionModel from "../model/submission.model";
 
 export const getUser = expressAsyncHandler(
   async (req: Request, res: Response) => {
@@ -578,7 +579,6 @@ export const getAllUsersDashBoard = expressAsyncHandler(
       }
 
       const total = await userModel.countDocuments(query);
-
       const users = await userModel
         .find(query)
         .select("-password")
@@ -588,22 +588,39 @@ export const getAllUsersDashBoard = expressAsyncHandler(
 
       const usersWithHistory = [];
 
+      let totalProblemsSolvedAllUsers = 0;
+
       for (const user of users) {
         try {
           const problemCount = await Leaderboard.countDocuments({
             user: user._id,
           });
+          const totalSubmit = await submissionModel.countDocuments({
+            user: user._id,
+          });
+          totalProblemsSolvedAllUsers += problemCount;
+
           usersWithHistory.push({
             ...user.toObject(),
             problemsSolved: problemCount,
+            totalSubmit: totalSubmit,
           });
         } catch (innerErr) {
           console.error("Lỗi khi đếm bài user:", user._id, innerErr);
         }
       }
 
+      const fifteenDaysAgo = new Date();
+      fifteenDaysAgo.setDate(fifteenDaysAgo.getDate() - 15);
+
+      const newUsersLast15Days = await userModel.countDocuments({
+        createdAt: { $gte: fifteenDaysAgo },
+      });
+
       const data = {
         users: usersWithHistory,
+        totalProblemsSolvedAllUsers,
+        newUsersLast15Days,
         pagination: {
           total,
           page,
@@ -638,12 +655,23 @@ export const countUserRank = expressAsyncHandler(
 
       const result = await Promise.all(
         defaultRanks.map(async (rank) => {
-          const count = await userModel.countDocuments({
-            elo: { $gte: rank.minElo, $lte: rank.maxElo },
+          // Lấy danh sách user thuộc rank này
+          const usersInRank = await userModel
+            .find({
+              elo: { $gte: rank.minElo, $lte: rank.maxElo },
+            })
+            .select("_id");
+
+          const userIds = usersInRank.map((u) => u._id);
+
+          const totalSubmit = await submissionModel.countDocuments({
+            user: { $in: userIds },
           });
+
           return {
             rankName: rank.name,
-            userCount: count,
+            userCount: usersInRank.length,
+            totalSubmit,
           };
         })
       );
