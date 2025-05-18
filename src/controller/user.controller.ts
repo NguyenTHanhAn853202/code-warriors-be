@@ -625,3 +625,39 @@ export const getAllUsersDashBoard = expressAsyncHandler(
     }
   }
 );
+
+export const countUserRank = expressAsyncHandler(
+  async (req: Request, res: Response) => {
+    try {
+      const defaultRanks = [
+        { name: "Bronze", minElo: 0, maxElo: 999, badge: "bronze.png" },
+        { name: "Silver", minElo: 1000, maxElo: 1999, badge: "silver.png" },
+        { name: "Gold", minElo: 2000, maxElo: 2999, badge: "gold.png" },
+        { name: "Platinum", minElo: 3000, maxElo: 3999, badge: "platinum.png" },
+      ];
+
+      const result = await Promise.all(
+        defaultRanks.map(async (rank) => {
+          const count = await userModel.countDocuments({
+            elo: { $gte: rank.minElo, $lte: rank.maxElo },
+          });
+          return {
+            rankName: rank.name,
+            userCount: count,
+          };
+        })
+      );
+
+      res.status(200).json({
+        status: "success",
+        message: "Lấy danh sách người dùng theo rank thành công",
+        data: result,
+      });
+    } catch (error) {
+      res.status(500).json({
+        status: "error",
+        message: "Lỗi server",
+      });
+    }
+  }
+);

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getUser, register, login, getTopUsers,getUserDetail, logout,changePassword, forgotPassword,resetPassword,validateResetToken,updateProfile, getRank, changeImage, getAllUsersDashBoard  } from "../controller/user.controller";
+import { getUser, register, login, getTopUsers,getUserDetail, logout,changePassword, forgotPassword,resetPassword,validateResetToken,updateProfile, getRank, changeImage, getAllUsersDashBoard, countUserRank  } from "../controller/user.controller";
 import { auth } from "../middleware/auth";
 import { chatbot } from "../controller/AI.controller";
 const router = Router();
@@ -17,6 +17,7 @@ router.post("/logout", logout);
 router.get("/topUser",getTopUsers);
 router.get("/rank",auth,getRank);
 router.get('/getAllUsers' , getAllUsersDashBoard);
+router.get('/getUserforRank' , countUserRank);
 
 router.post("/chatbot",chatbot)
 router.post("/update-image",auth,changeImage)
