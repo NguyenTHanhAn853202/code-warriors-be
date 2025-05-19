@@ -18,6 +18,7 @@ import { AppError } from "./utils/AppError";
 import { httpCode } from "./utils/httpCode";
 import jwt from "jsonwebtoken";
 import cookieParser from "cookie-parser";
+import connection from "./database/database";
 
 const app = express();
 app.use(
@@ -40,15 +41,13 @@ declare module "socket.io" {
   }
 }
 
-
-
 socketApp(io);
 
 app.use(morgan("dev"));
 
 app.use(express.static(path.join(__dirname, "public")));
-app.use(bodyParser.json({ limit: '10mb' }));
-app.use(bodyParser.urlencoded({ limit: '10mb', extended: true }));
+app.use(bodyParser.json({ limit: "10mb" }));
+app.use(bodyParser.urlencoded({ limit: "10mb", extended: true }));
 app.use(cookieParser());
 // routes
 
@@ -72,10 +71,10 @@ declare global {
   }
 }
 
-app.use((req:Request,res:Response,next:NextFunction)=>{
-  req.io = io
-  next()
-})
+app.use((req: Request, res: Response, next: NextFunction) => {
+  req.io = io;
+  next();
+});
 
 io.use((socket, next) => {
   let cookies: string[] = socket.request.headers.cookie?.split(";") as string[];
@@ -96,7 +95,17 @@ io.use((socket, next) => {
   if (socket.user) next();
 });
 
-connectDB();
+// connectDB();
+(async () => {
+  try {
+    await connection();
+    app.listen(PORT, () => {
+      console.log(`http://localhost:${PORT}`);
+    });
+  } catch (error) {
+    console.log(">>> Error connect to DB: ", error);
+  }
+})();
 router(app);
 
 app.use(errorHandler);
