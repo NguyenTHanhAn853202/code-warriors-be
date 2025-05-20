@@ -57,18 +57,18 @@ class ContestController {
     });
 
     viewAllContests = expressAsyncHandler(async (req: Request, res: Response) => {
-        const { title, difficulty} = req.query;
-    
+        const { title, difficulty } = req.query;
+
         const query: any = {};
-    
+
         if (title) {
             query.title = { $regex: title, $options: "i" };
         }
-    
+
         if (difficulty) {
             query.difficulty = difficulty;
         }
-    
+
         const contests = await contestModel
             .find(query)
             .sort({ createdAt: 1 })
@@ -77,15 +77,15 @@ class ContestController {
             .populate({
                 path: "author",
                 select: "username role",
-                match: { role: "user" }
+                match: { role: "user" },
             })
             .populate("testCases", "input expectedOutput");
-    
-       // const userContests = contests.filter(contest => contest.author !== null);
-    
-        sendResponse(res, "success", "Contests retrieved successfully", httpCode.OK, { contests});
+
+        // const userContests = contests.filter(contest => contest.author !== null);
+
+        sendResponse(res, "success", "Contests retrieved successfully", httpCode.OK, { contests });
     });
-    
+
     viewAllMyContests = expressAsyncHandler(async (req: Request, res: Response) => {
         const userId = req.user._id;
         const contests = await contestModel
@@ -94,7 +94,7 @@ class ContestController {
             .select("title description difficulty startDate endDate source_code")
             .populate("difficulty", "name")
             .populate("testCases", "input expectedOutput");
-    
+
         sendResponse(res, "success", "Contests của bạn đã được truy xuất thành công", httpCode.OK, { contests });
     });
 
@@ -106,12 +106,12 @@ class ContestController {
             .populate({
                 path: "author",
                 select: "username role",
-                match: { role: "user" }
+                match: { role: "user" },
             });
-       // const userContests = allContests.filter(contest => contest.author !== null);
+        // const userContests = allContests.filter(contest => contest.author !== null);
 
         const latestContests = allContests.slice(0, 3);
-    
+
         sendResponse(res, "success", "Latest contests retrieved successfully", httpCode.OK, {
             contests: latestContests,
         });
@@ -142,13 +142,14 @@ class ContestController {
         let finalDifficulty = difficulty;
         if (difficulty && difficulty.length > 0) {
             const rankDocs = await rankModel.find({ name: { $in: difficulty } }).select("_id");
-            finalDifficulty = rankDocs.length > 0 ? rankDocs.map(rank => rank._id) : contest.difficulty;
+            finalDifficulty = rankDocs.length > 0 ? rankDocs.map((rank) => rank._id) : contest.difficulty;
         }
-        let formattedTestCases = contest.testCases;
+        let formattedTestCases = [];
         if (Array.isArray(testCases) && testCases.length > 0) {
+            await testcaseModel.deleteMany({ problem: id });
+
             formattedTestCases = await Promise.all(
                 testCases.map(async (tc) => {
-                    if (mongoose.Types.ObjectId.isValid(tc)) return tc;
                     const newTestCase = await testcaseModel.create({
                         problem: id,
                         input: tc.input?.trim() || "",
@@ -157,6 +158,8 @@ class ContestController {
                     return newTestCase._id;
                 })
             );
+        } else {
+            formattedTestCases = contest.testCases;
         }
 
         const updates = {
@@ -168,17 +171,15 @@ class ContestController {
             source_code: source_code || contest.source_code,
             testCases: formattedTestCases,
         };
-    
+
         const updatedContest = await contestModel
             .findByIdAndUpdate(id, updates, { new: true, runValidators: true })
             .populate("difficulty", "name")
             .populate("testCases");
-    
+
         sendResponse(res, "success", "Contest updated successfully", httpCode.OK, { contest: updatedContest });
     });
-    
 
-    
     deleteContest = expressAsyncHandler(async (req: Request, res: Response) => {
         const { id } = req.params;
         const contest = await contestModel.findByIdAndDelete(id);
