@@ -8,6 +8,7 @@ import { AppError } from "../../utils/AppError";
 import { httpCode } from "../../utils/httpCode";
 import sendResponse from "../../utils/response";
 import algorithmType from "../../model/algorithmType.model";
+import Leaderboard from "../../model/leaderboard.model";
 
 interface TestCaseInput {
   input: string;
@@ -142,111 +143,123 @@ class Problems {
     });
   });
 
-  ViewAllProblems = expressAsyncHandler(
+ViewAllProblems = expressAsyncHandler(
+  async (req: Request, res: Response) => {
+    try {
+      const { page = 1, limit = 10, difficulty, title, userId } = req.query;
+
+      const filter: any = { endDate: null };
+      if (difficulty) filter.difficulty = difficulty;
+      if (title) filter.title = { $regex: title as string, $options: "i" };
+
+      const pageNumber = Number(page);
+      const limitNumber = Number(limit);
+
+      let solvedProblems: string[] = [];
+      if (userId) {
+        const history = await Leaderboard.find({ user: userId }).select("problem").lean();
+        solvedProblems = history.map((item) => item.problem.toString());
+      }
+
+      const problems = await problemModel
+        .find(filter)
+        .select("title description difficulty author createdAt")
+        .populate("difficulty", "name")
+        .populate("algorithmTypes", "name")
+        .populate("author", "username")
+        .skip((pageNumber - 1) * limitNumber)
+        .limit(limitNumber)
+        .sort({ createdAt: -1 })
+        .lean();
+
+        const problemsWithStatus = problems.map((problem) => ({
+        ...problem,
+        isSolved: solvedProblems.includes(problem._id.toString()),
+      }));
+
+      const total = await problemModel.countDocuments(filter);
+
+      res.status(200).json({
+        userId:userId,
+        success: true,
+        message: "Problems retrieved successfully",
+        problems: problemsWithStatus,
+        pagination: {
+          currentPage: pageNumber,
+          totalPages: Math.ceil(total / limitNumber),
+          totalProblems: total,
+        },
+      });
+    } catch (error) {
+      console.error("Error retrieving problems:", error);
+      res.status(500).json({
+        message: "Internal server error",
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  }
+);
+
+
+  ViewOneProblems = expressAsyncHandler(
     async (req: Request, res: Response, next: NextFunction): Promise<void> => {
       try {
-        const { page = 1, limit = 10, difficulty, title } = req.query;
+        const { id } = req.params;
 
-        const filter: any = {
-          endDate: null,
-        };
-        if (difficulty) filter.difficulty = difficulty;
-        if (title) filter.title = { $regex: title as string, $options: "i" };
+        // Validate ObjectId
+        if (!Types.ObjectId.isValid(id)) {
+          res.status(400).json({
+            success: false,
+            message: "ID bài toán không hợp lệ",
+          });
+          return;
+        }
 
-        const pageNumber = Number(page);
-        const limitNumber = Number(limit);
-
-        const problems = await problemModel
-          .find(filter)
-          .select("title description difficulty author createdAt")
+        const problem = await problemModel
+          .findById(id)
+          .select(
+            "_id title description difficulty author createdAt timeout startDate endDate testCases"
+          )
           .populate("difficulty", "name")
           .populate("algorithmTypes", "name")
           .populate("author", "username")
-          .skip((pageNumber - 1) * limitNumber)
-          .limit(limitNumber)
-          .sort({ createdAt: -1 });
+          .populate("testCases");
 
-        const total = await problemModel.countDocuments(filter);
+        if (!problem) {
+          res.status(404).json({
+            success: false,
+            message: "Không tìm thấy bài toán",
+          });
+          return;
+        }
 
+        // Match the frontend expected structure
         res.status(200).json({
-          message: "Problems retrieved successfully",
-          problems,
-          pagination: {
-            currentPage: pageNumber,
-            totalPages: Math.ceil(total / limitNumber),
-            totalProblems: total,
+          success: true,
+          message: "Lấy thông tin bài toán thành công",
+          problem: {
+            _id: problem._id,
+            title: problem.title,
+            description: problem.description,
+            difficulty: problem.difficulty,
+            author: problem.author,
+            createdAt: problem.createdAt,
+            timeout: problem.timeout,
+            startDate: problem.startDate,
+            endDate: problem.endDate,
+            testCases: problem.testCases,
           },
         });
       } catch (error) {
-        console.error("Error retrieving problems:", error);
+        console.error("Error retrieving problem:", error);
         res.status(500).json({
-          message: "Internal server error",
+          success: false,
+          message: "Lỗi server",
           error: error instanceof Error ? error.message : "Unknown error",
         });
       }
     }
   );
-
- ViewOneProblems = expressAsyncHandler(
-  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    try {
-      const { id } = req.params;
-
-      // Validate ObjectId
-      if (!Types.ObjectId.isValid(id)) {
-        res.status(400).json({
-          success: false,
-          message: "ID bài toán không hợp lệ"
-        });
-        return;
-      }
-
-      const problem = await problemModel
-        .findById(id)
-        .select(
-          "_id title description difficulty author createdAt timeout startDate endDate testCases"
-        )
-        .populate("difficulty", "name")
-        .populate("algorithmTypes", "name")
-        .populate("author", "username")
-        .populate("testCases");
-
-      if (!problem) {
-        res.status(404).json({
-          success: false,
-          message: "Không tìm thấy bài toán"
-        });
-        return;
-      }
-
-      // Match the frontend expected structure
-      res.status(200).json({
-        success: true,
-        message: "Lấy thông tin bài toán thành công",
-        problem: {
-          _id: problem._id,
-          title: problem.title,
-          description: problem.description,
-          difficulty: problem.difficulty,
-          author: problem.author,
-          createdAt: problem.createdAt,
-          timeout: problem.timeout,
-          startDate: problem.startDate,
-          endDate: problem.endDate,
-          testCases: problem.testCases
-        }
-      });
-
-    } catch (error) {
-      console.error("Error retrieving problem:", error);
-      res.status(500).json({
-        success: false,
-        message: "Lỗi server",
-        error: error instanceof Error ? error.message : "Unknown error"
-      });
-    }
-  }
-);
 
   UpdateProblem = expressAsyncHandler(
     async (req: Request, res: Response, next: NextFunction): Promise<void> => {

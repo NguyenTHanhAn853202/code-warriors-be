@@ -1,5 +1,6 @@
 import { Router } from "express";
 import problemsController from "../controller/problems/problems.controller";
+import { auth } from "../middleware/auth";
 
 const router = Router();
 
@@ -8,7 +9,6 @@ router.get("/viewAllProblems", problemsController.ViewAllProblems);
 router.get("/viewOneProblems/:id", problemsController.ViewOneProblems);
 router.patch("/updateProblems/:id", problemsController.UpdateProblem);
 router.delete("/deleteProblems/:id", problemsController.DeleteProblem);
-router.get("/randomProblems", problemsController.RandomProblems);
 
 router.get("/:id", problemsController.get);
 
