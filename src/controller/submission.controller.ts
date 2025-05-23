@@ -14,6 +14,7 @@ import mongoose from "mongoose";
 import RoomBattle, { IRoomBattle } from "../model/room.model";
 import submissionModel from "../model/submission.model";
 import { time } from "console";
+import runCode_Room from "../utils/runCode_Room";
 
 // Add these interfaces at the top of the file after imports
 interface IPopulatedProblem {
@@ -98,6 +99,30 @@ class SubmissionController {
     evaluate.score = evaluate.point;
     sendResponse(res, "success", "done", httpCode.OK, evaluate);
   });
+  run1 = expressAsyncHandler(async (req: Request, res: Response) => {
+    const { sourceCode = null, languageId = null, problemId = null } = req.body;
+    if (!sourceCode || !languageId || !problemId)
+      throw new AppError("Miss information", httpCode.BAD_REQUEST, "warning");
+
+    const testcases = await testcaseModel
+      .find({ problem: problemId })
+      .select("expectedOutput input problem");
+    const problem = await problemModel.findById(problemId);
+
+    if (!problem) {
+      throw new AppError("Not found problem", httpCode.BAD_REQUEST, "warning");
+    }
+
+    const evaluate: any = await runCode_Room(
+      languageId,
+      sourceCode,
+      testcases,
+      problem.timeout
+    );
+
+    evaluate.score = evaluate.point;
+    sendResponse(res, "success", "done", httpCode.OK, evaluate);
+  });
 
   historySubmit = expressAsyncHandler(async (req: Request, res: Response) => {
     const userId = req.user._id;
@@ -163,6 +188,65 @@ class SubmissionController {
     }
   );
 
+  getBattleResult = expressAsyncHandler(async (req: Request, res: Response) => {
+     try {
+        const { roomId } = req.params;
+    
+        // Tìm phòng và populate submissions
+        const room = await RoomBattle.findOne({ roomId }).populate({
+          path: "submissions.submission",
+          select: "grade executionTime memoryUsage status timeSubmission",
+        });
+    
+        if (!room) {
+          return sendResponse(
+            res,
+            "error",
+            "Phòng không tồn tại",
+            httpCode.NOT_FOUND
+          );
+        }
+    
+        // Lấy tất cả submissions thuộc phòng này
+        const submissions = await submissionModel.find({ room: room._id }).select(
+          "username grade executionTime memoryUsage status timeSubmission"
+        ).lean();
+    
+        // Tính điểm và xếp hạng
+        const rankings = submissions.sort((a, b) => {
+          if (b.grade !== a.grade) return b.grade - a.grade;
+          if (a.executionTime !== b.executionTime)
+            return a.executionTime - b.executionTime;
+          return a.memoryUsage - b.memoryUsage;
+        });
+    
+        const submissionsWithRank = rankings.map((sub, index) => ({
+          ...sub,
+          rank: index + 1,
+        }));
+    
+        // Trả về dữ liệu
+        return sendResponse(
+          res,
+          "success",
+          "Lấy thông tin phòng thành công",
+          httpCode.OK,
+          {
+            ...room.toObject(),
+            submissions: submissionsWithRank,
+          }
+        );
+      } catch (error) {
+        console.error("Get room error:", error);
+        return sendResponse(
+          res,
+          "error",
+          "Lỗi server",
+          httpCode.INTERNAL_SERVER_ERROR
+        );
+      }
+  });
+
   submitRoomBattle = expressAsyncHandler(
     async (req: Request, res: Response) => {
       try {
@@ -213,6 +297,7 @@ class SubmissionController {
           );
         }
 
+        // Khóa phòng để nộp bài
         const lockedRoom = await RoomBattle.findOneAndUpdate(
           {
             _id: room._id,
@@ -226,13 +311,14 @@ class SubmissionController {
 
         if (!lockedRoom) {
           throw new AppError(
-            "Không thể nộp bài lúc này",
+            "Không thể khóa phòng để nộp bài",
             httpCode.BAD_REQUEST,
             "warning"
           );
         }
 
         try {
+          // Lấy testcase
           const testcases = await testcaseModel
             .find({ problem: room.problems._id })
             .select("input expectedOutput");
@@ -245,67 +331,118 @@ class SubmissionController {
             );
           }
 
-          const evaluation = await runCode(
+          // Thực thi mã
+          const evaluation = await runCode_Room(
             languageId,
             sourceCode,
             testcases,
             room.problems.timeout || 180000
           );
 
-          const submission = await submissionModel.create({
+          const isAccepted = evaluation.point === testcases.length;
+
+          const submissionData = {
             user: userId,
             problem: room.problems._id,
             room: room._id,
             code: sourceCode,
             language: languageId,
-            grade: evaluation.point,
-            memoryUsage: evaluation.memory,
-            executionTime: evaluation.time,
-            status:
-              evaluation.point === testcases.length
-                ? "Accepted"
-                : "Wrong Answer",
+            grade: isAccepted ? evaluation.point : 0,
+            memoryUsage: isAccepted ? evaluation.memory : 0,
+            executionTime: isAccepted ? evaluation.time : 0,
+            status: isAccepted ? "Accepted" : "Wrong Answer",
             username: username,
+            timeSubmission: Date.now(),
+          };
+
+          // Lưu bài nộp
+          const submission = await submissionModel.create(submissionData);
+
+          // Tạo danh sách submission mới có bài nộp này
+          const allSubmissions = [...room.submissions];
+          allSubmissions.push({
+            username,
+            submission: submission.id,
+            submittedAt: new Date(),
           });
 
-          const updatedRoom = await RoomBattle.findOneAndUpdate(
-            {
-              _id: room._id,
-              status: "ongoing",
-              submitting: username,
-            },
-            {
-              $push: {
-                submissions: {
-                  username,
-                  submission: submission._id,
-                  submittedAt: new Date(),
-                },
+          let updateData: any = {
+            $push: {
+              submissions: {
+                username,
+                submission: submission._id,
+                submittedAt: new Date(),
               },
-              $pull: { submitting: username },
-              ...(room.submissions.length + 1 === room.players.length
-                ? {
-                    $set: {
-                      status: "finished",
-                      endedAt: new Date(),
-                      winner: username, 
-                    },
-                  }
-                : {}),
             },
+            $pull: { submitting: username },
+          };
+
+          let newStatus = room.status;
+          let winnerUsername = null;
+          let rankings: any[] = [];
+
+          if (allSubmissions.length === room.players.length) {
+            // Phòng kết thúc, tính rankings
+
+            // Lấy chi tiết bài nộp để tính điểm
+            const userResults = await Promise.all(
+              allSubmissions.map(async (sub) => {
+                const subDetail = await submissionModel
+                  .findById(sub.submission)
+                  .select(
+                    "grade executionTime memoryUsage status timeSubmission"
+                  );
+                return {
+                  username: sub.username,
+                  points: subDetail?.grade || 0,
+                  executionTime: subDetail?.executionTime || 0,
+                  memoryUsage: subDetail?.memoryUsage || 0,
+                  status: subDetail?.status || "Not Submitted",
+                  submittedAt: sub.submittedAt,
+                };
+              })
+            );
+
+            // Sắp xếp theo điểm giảm dần, thời gian tăng dần, bộ nhớ tăng dần
+            userResults.sort((a, b) => {
+              if (b.points !== a.points) return b.points - a.points;
+              if (a.executionTime !== b.executionTime)
+                return a.executionTime - b.executionTime;
+              return a.memoryUsage - b.memoryUsage;
+            });
+
+            // Gán thứ hạng
+            rankings = userResults.map((r, idx) => ({ ...r, rank: idx + 1 }));
+
+            let newStatus: "waiting" | "ongoing" | "finished";
+            newStatus = "finished"; // OK
+            winnerUsername = isAccepted ? username : null;
+
+            updateData = {
+              ...updateData,
+              status: newStatus,
+              endedAt: new Date(),
+              winner: winnerUsername,
+              rankings,
+            };
+          }
+
+          const updatedRoom = await RoomBattle.findOneAndUpdate(
+            { _id: room._id, status: room.status },
+            updateData,
             { new: true }
           );
 
           if (!updatedRoom) {
-            await submissionModel.findByIdAndDelete(submission._id);
             throw new AppError(
-              "Không thể thêm bài nộp",
+              "Không thể cập nhật phòng, nhưng bài nộp đã được lưu",
               httpCode.BAD_REQUEST,
               "warning"
             );
           }
 
-          if (updatedRoom.status === "finished") {
+          // Cập nhật leaderboard nếu phòng kết thúc và bài nộp đúng
+          if (updatedRoom.status === "finished" && isAccepted) {
             await Promise.all(
               updatedRoom.submissions.map((sub) =>
                 Leaderboard.create({
@@ -314,12 +451,13 @@ class SubmissionController {
                   score: evaluation.point,
                   time: evaluation.time,
                   memory: evaluation.memory,
-                  timeSubmission: new Date(),
+                  timeSubmission: Date.now(),
                 })
               )
             );
           }
 
+          // Trả về phản hồi
           return sendResponse(
             res,
             "success",
@@ -328,14 +466,11 @@ class SubmissionController {
             {
               isComplete: updatedRoom.status === "finished",
               submission: {
-                grade: evaluation.point,
+                grade: submissionData.grade,
                 total: testcases.length,
-                executionTime: evaluation.time,
-                memoryUsage: evaluation.memory,
-                status:
-                  evaluation.point === testcases.length
-                    ? "Accepted"
-                    : "Wrong Answer",
+                executionTime: submissionData.executionTime,
+                memoryUsage: submissionData.memoryUsage,
+                status: submissionData.status,
               },
               ...(updatedRoom.status === "finished"
                 ? {
@@ -347,6 +482,7 @@ class SubmissionController {
         } catch (error) {
           throw error;
         } finally {
+          // Đảm bảo xóa username khỏi submitting dù lỗi hay thành công
           await RoomBattle.updateOne(
             { _id: room._id },
             { $pull: { submitting: username } }
@@ -356,7 +492,7 @@ class SubmissionController {
         if (error instanceof AppError) {
           return sendResponse(res, "error", error.message, error.statusCode);
         }
-        console.error("Submission error:", error);
+        console.error("Lỗi nộp bài:", error);
         return sendResponse(
           res,
           "error",
@@ -366,85 +502,6 @@ class SubmissionController {
       }
     }
   );
-
-  getBattleResult = expressAsyncHandler(async (req: Request, res: Response) => {
-    try {
-      const { roomId } = req.params;
-      const room = await RoomBattle.findOne({ roomId })
-        .populate({
-          path: "problems",
-          select: "title description",
-        })
-        .populate({
-          path: "submissions.submission",
-          select: "grade executionTime memoryUsage status timeSubmission",
-        })
-        .select(
-          "roomId players status rankings winner startedAt endedAt submissions"
-        );
-
-      if (!room) {
-        return sendResponse(
-          res,
-          "error",
-          "Không tìm thấy thông tin trận đấu",
-          httpCode.NOT_FOUND
-        );
-      }
-      const formattedRankings: IRanking[] = (room.rankings || []).map(
-        (rank) => {
-          const submission = room.submissions.find(
-            (sub) => sub.username === rank.username
-          );
-
-          return {
-            username: rank.username,
-            points: rank.points,
-            executionTime: rank.executionTime,
-            memoryUsage: rank.memoryUsage,
-            status: rank.status,
-            duration: rank.duration,
-            submittedAt: submission?.submittedAt,
-            rank: rank.rank,
-          };
-        }
-      );
-
-      const sortedRankings = formattedRankings.sort((a, b) => {
-        if (b.points !== a.points) return b.points - a.points;
-        if (a.executionTime !== b.executionTime)
-          return a.executionTime - b.executionTime;
-        return a.memoryUsage - b.memoryUsage;
-      });
-
-      return sendResponse(
-        res,
-        "success",
-        "Lấy thông tin trận đấu thành công",
-        httpCode.OK,
-        {
-          roomId: room.roomId,
-          players: room.players,
-          status: room.status,
-          winner: room.winner,
-          startedAt: room.startedAt,
-          endedAt: room.endedAt,
-          rankings: sortedRankings.map((r, index) => ({
-            ...r,
-            rank: index + 1, 
-          })),
-        }
-      );
-    } catch (error) {
-      console.error("Get battle result error:", error);
-      return sendResponse(
-        res,
-        "error",
-        "Lỗi server",
-        httpCode.INTERNAL_SERVER_ERROR
-      );
-    }
-  });
 }
 
 export default new SubmissionController();

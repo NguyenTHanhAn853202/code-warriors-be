@@ -7,6 +7,7 @@ const router = Router();
 
 router.post("/", auth, submissionController.evaluation);
 router.post("/run", submissionController.run);
+router.post("/run1", submissionController.run1);
 router.post("/submitRoom", auth, submissionController.submitRoomBattle);
 router.get("/history/:problemId", auth, submissionController.historySubmit);
 router.get("/top3/:problemId", submissionController.getTop3Leaderboard);
