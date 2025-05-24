@@ -95,17 +95,17 @@ io.use((socket, next) => {
   if (socket.user) next();
 });
 
-// connectDB();
-(async () => {
-  try {
-    await connection();
-    app.listen(PORT, () => {
-      console.log(`http://localhost:${PORT}`);
-    });
-  } catch (error) {
-    console.log(">>> Error connect to DB: ", error);
-  }
-})();
+connectDB();
+// (async () => {
+//   try {
+//     await connection();
+//     app.listen(PORT, () => {
+//       console.log(`http://localhost:${PORT}`);
+//     });
+//   } catch (error) {
+//     console.log(">>> Error connect to DB: ", error);
+//   }
+// })();
 router(app);
 
 app.use(errorHandler);

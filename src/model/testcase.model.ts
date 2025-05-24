@@ -11,8 +11,8 @@ export interface ITestCase extends Document {
 const testCaseSchema = new Schema<ITestCase>(
   {
     problem: { type: Schema.Types.ObjectId, ref: "Problem", required: true },
-    input: { type: String, required: true },
-    expectedOutput: { type: String, required: true },
+    input: { type: String },
+    expectedOutput: { type: String},
   },
   { timestamps: true }
 );

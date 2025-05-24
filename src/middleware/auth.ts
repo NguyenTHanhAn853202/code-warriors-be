@@ -23,7 +23,7 @@ declare module 'express-serve-static-core' {
 
 export const auth = expressAsyncHandler(async(req:Request,res:Response,next:NextFunction)=>{
     const token = req.cookies["token"]
-    //console.log("Token:", token);
+    console.log("Token:", req.cookies);
     const decoded = jwt.verify(token,TOKEN_KEY)
     //console.log("Decoded:", decoded);
     if(!decoded)

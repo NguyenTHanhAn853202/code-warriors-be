@@ -95,9 +95,16 @@ class Problems {
     }
 
     if (testCases.length > 0) {
+      console.log(testCases);
+      
       const invalidTestCases = testCases.filter(
-        (testCase: TestCaseInput) => !testCase.input || !testCase.expectedOutput
+        (testCase: TestCaseInput) =>
+          testCase.input === undefined  ||
+          testCase.expectedOutput === undefined
       );
+
+      console.log("invalid", invalidTestCases);
+      
 
       if (invalidTestCases.length > 0) {
         res.status(400).json({
@@ -167,8 +174,6 @@ ViewAllProblems = expressAsyncHandler(
         .populate("difficulty", "name")
         .populate("algorithmTypes", "name")
         .populate("author", "username")
-        .skip((pageNumber - 1) * limitNumber)
-        .limit(limitNumber)
         .sort({ createdAt: -1 })
         .lean();
 
