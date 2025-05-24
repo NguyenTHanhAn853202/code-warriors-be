@@ -154,65 +154,76 @@ class RoomBattleController {
     }
   );
 
-getRoomById = expressAsyncHandler(async (req: Request, res: Response) => {
-  try {
-    const { roomId } = req.params;
+  getRoomById = expressAsyncHandler(async (req: Request, res: Response) => {
+    try {
+      const { roomId } = req.params;
 
-    // Tìm phòng và populate submissions
-    const room = await RoomBattleModel.findOne({ roomId }).populate({
-      path: "submissions.submission",
-      select: "grade executionTime memoryUsage status timeSubmission",
-    });
+      // Lấy thông tin phòng và populate submissions
+      const room = await RoomBattleModel.findOne({ roomId }).populate({
+        path: "submissions.submission",
+        select: "grade executionTime memoryUsage status",
+      });
 
-    if (!room) {
+      if (!room) {
+        return sendResponse(
+          res,
+          "error",
+          "Phòng không tồn tại",
+          httpCode.NOT_FOUND
+        );
+      }
+
+      // Nếu phòng đã kết thúc, lấy thêm rankings
+      if (room.status === "finished") {
+        const submissions = await submissionModel
+          .find({ room: room._id })
+          .select("username grade executionTime memoryUsage status")
+          .lean();
+
+        // Tính toán rankings
+        const rankings = submissions.sort((a, b) => {
+          if (b.grade !== a.grade) return b.grade - a.grade;
+          if (a.executionTime !== b.executionTime)
+            return a.executionTime - b.executionTime;
+          return a.memoryUsage - b.memoryUsage;
+        });
+
+        // Format response data
+        const responseData = {
+          ...room.toObject(),
+          submissions: rankings.map((sub, index) => ({
+            ...sub,
+            rank: index + 1,
+          })),
+        };
+
+        return sendResponse(
+          res,
+          "success",
+          "Lấy thông tin phòng thành công",
+          httpCode.OK,
+          responseData
+        );
+      }
+
+      // Nếu phòng chưa kết thúc, trả về thông tin cơ bản
+      return sendResponse(
+        res,
+        "success",
+        "Lấy thông tin phòng thành công",
+        httpCode.OK,
+        room
+      );
+    } catch (error) {
+      console.error("Get room error:", error);
       return sendResponse(
         res,
         "error",
-        "Phòng không tồn tại",
-        httpCode.NOT_FOUND
+        "Lỗi server",
+        httpCode.INTERNAL_SERVER_ERROR
       );
     }
-
-    // Lấy tất cả submissions thuộc phòng này
-    const submissions = await submissionModel.find({ room: room._id }).select(
-      "username grade executionTime memoryUsage status timeSubmission"
-    ).lean();
-
-    // Tính điểm và xếp hạng
-    const rankings = submissions.sort((a, b) => {
-      if (b.grade !== a.grade) return b.grade - a.grade;
-      if (a.executionTime !== b.executionTime)
-        return a.executionTime - b.executionTime;
-      return a.memoryUsage - b.memoryUsage;
-    });
-
-    const submissionsWithRank = rankings.map((sub, index) => ({
-      ...sub,
-      rank: index + 1,
-    }));
-
-    // Trả về dữ liệu
-    return sendResponse(
-      res,
-      "success",
-      "Lấy thông tin phòng thành công",
-      httpCode.OK,
-      {
-        ...room.toObject(),
-        submissions: submissionsWithRank,
-      }
-    );
-  } catch (error) {
-    console.error("Get room error:", error);
-    return sendResponse(
-      res,
-      "error",
-      "Lỗi server",
-      httpCode.INTERNAL_SERVER_ERROR
-    );
-  }
-});
-
+  });
 
   submit = expressAsyncHandler(async (req: Request, res: Response) => {
     const { languageId, sourceCode, problemId, roomId, roomMatch } = req.body;

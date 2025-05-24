@@ -58,7 +58,6 @@ const roomBattleSchema = new Schema<IRoomBattle>({
       executionTime: { type: Number },
       memoryUsage: { type: Number },
       status: { type: String },
-      duration: { type: Number },
       rank: { type: Number },
       submittedAt: { type: Date },
     },
