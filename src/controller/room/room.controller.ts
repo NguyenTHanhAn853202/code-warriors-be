@@ -173,14 +173,12 @@ class RoomBattleController {
         );
       }
 
-      // Nếu phòng đã kết thúc, lấy thêm rankings
       if (room.status === "finished") {
         const submissions = await submissionModel
           .find({ room: room._id })
           .select("username grade executionTime memoryUsage status")
           .lean();
 
-        // Tính toán rankings
         const rankings = submissions.sort((a, b) => {
           if (b.grade !== a.grade) return b.grade - a.grade;
           if (a.executionTime !== b.executionTime)
@@ -188,13 +186,18 @@ class RoomBattleController {
           return a.memoryUsage - b.memoryUsage;
         });
 
-        // Format response data
         const responseData = {
           ...room.toObject(),
           submissions: rankings.map((sub, index) => ({
             ...sub,
             rank: index + 1,
           })),
+          rankings: rankings.map((sub, index) => ({
+            ...sub,
+            rank: index + 1,
+          })),
+          submitting: room.submitting,
+          winner: room.winner,
         };
 
         return sendResponse(
