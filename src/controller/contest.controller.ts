@@ -69,8 +69,12 @@ class ContestController {
             query.difficulty = difficulty;
         }
 
+        query.startDate != null;
+        query.endDate != null;
+
+
         const contests = await contestModel
-            .find(query)
+            .find({...query, endDate: { $ne: null } })
             .sort({ createdAt: 1 })
             .select("title description difficulty startDate endDate source_code")
             .populate("difficulty", "name")
@@ -89,7 +93,7 @@ class ContestController {
     viewAllMyContests = expressAsyncHandler(async (req: Request, res: Response) => {
         const userId = req.user._id;
         const contests = await contestModel
-            .find({ author: userId })
+            .find({ author: userId, endDate: { $ne: null }, startDate: { $ne: null } })
             .sort({ createdAt: -1 })
             .select("title description difficulty startDate endDate source_code")
             .populate("difficulty", "name")

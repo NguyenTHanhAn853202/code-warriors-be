@@ -19,6 +19,7 @@ import { httpCode } from "./utils/httpCode";
 import jwt from "jsonwebtoken";
 import cookieParser from "cookie-parser";
 import connection from "./database/database";
+import problemModel from "./model/problem.model";
 
 const app = express();
 app.use(
@@ -94,6 +95,7 @@ io.use((socket, next) => {
   index++;
   if (socket.user) next();
 });
+
 
 connectDB();
 // (async () => {

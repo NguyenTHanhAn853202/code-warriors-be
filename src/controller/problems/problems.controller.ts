@@ -174,6 +174,8 @@ ViewAllProblems = expressAsyncHandler(
         .populate("difficulty", "name")
         .populate("algorithmTypes", "name")
         .populate("author", "username")
+        .populate("author", "username")
+        .populate("testCases", "input expectedOutput")
         .sort({ createdAt: -1 })
         .lean();
 
