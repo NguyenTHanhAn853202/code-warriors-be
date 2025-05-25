@@ -39,7 +39,7 @@ function findMatch(socket:Socket,io:Server) {
              }
              if(indexCompetitor !== -1){
                 const rankId = await getRankId([rank,waitingUsers[indexCompetitor].rank].sort()[0])
-                const problems = await problemModel.find({difficulty:rankId,startDate:null})
+                const problems = await problemModel.find({difficulty:rankId,endDate:null})
                 const problem = problems[Math.floor(Math.random()*problems.length)]
                 console.log(problem + " problem" );
                 
