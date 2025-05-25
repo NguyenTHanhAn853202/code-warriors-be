@@ -56,6 +56,18 @@ function handleRoomBattle(client: Socket, server: Server) {
         client.emit("room_join_error", { message: "Phòng không tồn tại" });
         return;
       }
+      if (room.players.includes(username)) {
+        client.join(roomId);
+        client.emit("room_joined", room);
+        return;
+      }
+
+      if (room.players.length >= room.maxPlayers) {
+        client.emit("room_join_error", {
+          message: "Phòng đã đầy, không thể tham gia",
+        });
+        return;
+      }
 
       if (!room.players.includes(username)) {
         room.players.push(username);
@@ -118,6 +130,7 @@ function handleRoomBattle(client: Socket, server: Server) {
       if (count === 0) {
         return client.emit("error", { message: "Không có bài toán nào" });
       }
+      
 
       const random = Math.floor(Math.random() * count);
       const randomProblem = await problemModel
